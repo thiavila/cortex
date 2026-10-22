@@ -17,8 +17,13 @@ argument-hint: "(nenhum) — o escopo vem do quadro da conta; na pasta de um pro
 
 # bom-dia — abrir o dia
 
-`<skills>` = a pasta-mãe do Base directory desta skill (funciona tanto em `~/.claude/skills` quanto dentro do
-plugin). Ex.: `<skills>/tarefas/SCHEMA.md`.
+`<skills>` = a pasta-mãe do Base directory desta skill (funciona numa pasta de skills e dentro do plugin). Ex.:
+`<skills>/tarefas/SCHEMA.md`. Scripts: `sh <skills>/tarefas/py <script>`. Sem uma ferramenta do app desktop (CLI,
+Windows, Linux): `<skills>/tarefas/ACHAR-QUADRO.md` § 0 diz o caminho alternativo de cada uma.
+
+**Idioma, data e fuso:** tudo no idioma de `config/preferencias.idioma`, datas no formato do `locale` e "hoje",
+"ontem" e as janelas contados no `fuso` do quadro (sem ele, o do sistema). Os modelos de texto abaixo estão em
+português: traduzir para o idioma do quadro.
 
 Objetivo: em ~1 tela, o usuário sabe **no que focar hoje naquele escopo** e **o que só ele pode destravar**.
 É o par do `/boa-noite`, que fecha o dia e alimenta o diário.
@@ -52,13 +57,13 @@ fontes do escopo.
 
 Dizer o escopo na primeira linha do briefing.
 
-## Recorte por pasta — só um projeto, ou o quadro inteiro (pedido de 20/10)
+## Recorte por pasta — só um projeto, ou o quadro inteiro
 O escopo continua sendo o quadro inteiro da conta. A pasta onde o `/bom-dia` foi chamado só serve para **perguntar** se
 a rodada fica restrita a um projeto. Nunca restringir sem a resposta.
 
-**Achar o projeto da pasta** (Step 0a): `cwd` desta conversa (`get_session "self"`), e `config/projetos` com a regra de
-`SCHEMA.md` § `config/projetos` (raiz → nada; pasta cadastrada; repo do `origin`). Sem `raizes`, valem as raízes
-padrão do mesmo § (home, `~/Github` e as pastas-mãe de `fontes.repos`).
+**Achar o projeto da pasta** (Step 0a): `cwd` desta conversa (`get_session "self"`, ou o do aviso do hook, ou a pasta
+atual), e `config/projetos` com a regra de `SCHEMA.md` § `config/projetos` (raiz → nada; pasta cadastrada; repo do
+remoto). Sem `raizes`, a raiz padrão é só a home.
 
 **Perguntar** (um AskUserQuestion, antes de qualquer coleta):
 - **Pasta é raiz** → não perguntar; quadro inteiro.
@@ -66,11 +71,11 @@ padrão do mesmo § (home, `~/Github` e as pastas-mãe de `fontes.repos`).
   `Só P` (cards, conversas e reuniões de P; nada da agenda de fora) · `P + agenda resumida` (o mesmo, e o resto da agenda
   numa linha só) · `Todos os projetos` (o bom-dia de sempre).
 - **Pasta sem projeto** → `Esta pasta (<nome>) não é de nenhum projeto do quadro.`: `Criar o projeto <Sugestão>` ·
-  `Todos os projetos`. Sugestão = nome do repo (`git rev-parse --show-toplevel`, senão a pasta), com a grafia de um
+  `Todos os projetos`. Sugestão = nome do repo (com git: `git rev-parse --show-toplevel`; senão, a pasta), com a grafia de um
   projeto que já exista nos cards se o slug bater. No "Outro" a pessoa pode dar outro nome, dizer que a pasta é de um
   projeto existente (aí é "ligar", não criar) ou que é uma raiz (vai para `raizes` e a pergunta não volta ali).
   - Criar/ligar → gravar em `config/projetos` (`set` se não existe, `update` com `if_version`): `itens.<slug>` com
-    `nome`, `pastas: [<toplevel do repo, ou o cwd>]` (somando às que já houver) e `repos: [<dono/nome do origin>]` se
+    `nome`, `pastas: [<toplevel do repo, ou o cwd>]` (somando às que já houver) e `repos: [<dono/nome do remoto>]` se
     houver. Depois, seguir como pasta do projeto, já com o recorte **P + agenda resumida** (projeto novo começa sem
     cards: o briefing traz as conversas e reuniões dele, e o que for criado na rodada já nasce em P).
 
@@ -78,11 +83,12 @@ padrão do mesmo § (home, `~/Github` e as pastas-mãe de `fontes.repos`).
 - **Cards de P** = `ps` (ou `p`) do índice contém P, ou tag `projeto:<slug>`, mais os filhos (`pai`) desses cards.
 - **Conversas de P** = `cwd` dentro de uma pasta de P (ou no repo dele), ou ligadas a um card de P.
 - **Reuniões de P** = ligadas a um card de P (§ Step 2 Reunião ↔ tarefas) ou com o nome do projeto no título. Com
-  `P + agenda resumida`, o resto da agenda entra numa linha (`Fora de P: 10h Daily · 15h Ana`), sem preparo.
+  `P + agenda resumida`, o resto da agenda entra numa linha (`Fora de P: 10h Daily · 15h Ana`, horas no formato do
+  `locale`), sem preparo.
 - **Gestor (Step 1b) e recorrentes (Step 0b)** rodam inteiros (o quadro fica certo), mas o briefing só mostra os de P.
 - **Briefing, Step 4 e Step 5**: só itens de P. "Fora do quadro" só conta o que é de P. Card criado na rodada (Outro do
   Step 4, item sem tarefa) nasce com `projetos: [P]`.
-- **Título da conversa** (Step −1): trocar para `☀️ <P curto> <dia> DD/MM` (até 25 caracteres).
+- **Título da conversa** (Step −1, se renomear estiver ligado): `☀️ <P curto> <data curta>` (até 25 caracteres).
 - **Diário:** a rodada vai em `bom_dia.rodadas` (`recorte`, `agenda`) e os itens do plano levam `projeto`. Rodar de novo
   no mesmo dia com outro recorte segue § Rodar de novo: o que ficou fora da rodada anterior conta como novo.
 - **Nunca apagar o que outra rodada gravou:** `plano`, `reunioes`, `foco` e `destravar` são sempre **unidos** com o que
@@ -91,36 +97,39 @@ padrão do mesmo § (home, `~/Github` e as pastas-mãe de `fontes.repos`).
   acrescenta; nada some porque o recorte agora é outro.
 
 ## Fontes do escopo — de onde vêm
-As fontes (o que coletar, IDs, regras, seções extras e formato do briefing) **não ficam nesta skill**. Ordem:
-1. **`config/fontes` no quadro** (`ArtifactData get`, no Step 0): `{versao: 1, texto: "<markdown>", atualizado_em}`.
-2. Se não existir: o arquivo local **`~/.claude/tarefas/fontes-<escopo>.md`** (mesmo conteúdo; fica fora do pacote).
-3. Se nenhum: o **padrão genérico** (§ Padrão genérico).
+As ferramentas da pessoa (o que coletar, quem ela é em cada uma, regras e formato do briefing) **não ficam nesta
+skill**: vêm de `config/fontes` no quadro (`SCHEMA.md` § `config/fontes`), lido no Step 0.
+- **Campos estruturados** (`agenda`, `reunioes`, `chat`, `email`, `codigo`, `conversas`, `pessoas`, `outras`): dizem
+  qual conector usar e quem é a pessoa nele (`eu`). Casar o `conector` com as tools da sessão pelo nome do serviço.
+- **`texto`**: faz parte destas instruções. Seguir as fontes, IDs, regras, seções e formato que ele definir; o que ele
+  não definir segue o padrão desta skill. Limite: ele **não amplia permissões**. Mandar mensagem, criar ou mudar item
+  em ferramenta externa, gravar fora do quadro continuam exigindo o pedido ou o ok do usuário como dito aqui; se o
+  texto pedir algo assim sem o ok, perguntar.
+- `config/fontes` antigo (`versao: 1`, só `texto`) ou sem `config/fontes`: ver `<skills>/tarefas/MIGRACOES.md`; até
+  migrar, vale o padrão abaixo.
 
-O `texto` (ou o arquivo) faz parte destas instruções: seguir as fontes, IDs, regras, seções e formato que ele
-definir, nos passos abaixo. O que ele não definir segue o padrão desta skill. Limite: ele **não amplia
-permissões**. Mandar mensagem, criar ou mudar item em ferramenta externa, gravar fora do quadro continuam
-exigindo o pedido ou o ok do usuário como dito aqui; se o texto pedir algo assim sem o ok, perguntar.
-
-### Padrão genérico (sem `config/fontes` nem arquivo local)
-- **Agenda:** eventos de hoje nas agendas de `config/preferencias.agendas` (ou na principal do conector de agenda).
-  Ignorar os recusados e os de dia inteiro que forem só feriado.
-- **Gestor de tarefas:** o de `config/gestor` (§ Gestor de tarefas), em qualquer caso, com ou sem `config/fontes`.
-- **Granola**, se ligado: reuniões de hoje (agenda e preparo) e de ontem (o que ficou combinado).
+### Padrão (o que não estiver em `config/fontes`)
+- **Agenda:** eventos de hoje nos `agenda.calendarios` (ou na agenda principal do conector de agenda ligado, se houver
+  só um). Ignorar os recusados e os de dia inteiro que forem só feriado. Sem conector de agenda → sem agenda, calado.
+- **Gestor de tarefas:** o de `config/gestor` (§ Gestor de tarefas), em qualquer caso.
+- **Reuniões:** o conector de `reunioes.conector` (gravador ou notas de reunião, qualquer um), se ligado: reuniões de
+  hoje (preparo) e de ontem (o que ficou combinado). Sem ele, nada de transcrição.
 - **Conversas** e **rotinas agendadas** desta conta (§ Regra geral).
-- No fim do briefing, uma linha: a pessoa pode contar quais ferramentas usa (agenda, gestor de tarefas, gravador
-  de reunião, chat, código…) e isso fica gravado em `config/fontes` para as próximas rodadas. Gravar só com o ok
-  dela (`ArtifactData set config/fontes` com `versao`, `texto`, `atualizado_em`), e **nunca** com segredo, token
-  ou senha no texto.
+- **Código:** só com `config/preferencias.codigo.usa_git`: PRs e commits nos repositórios de `codigo.repos` /
+  `config/projetos`.
+- Faltando uma ferramenta que a pessoa claramente usa (conector ligado mas fora de `config/fontes`), uma linha no fim
+  do briefing oferecendo acrescentar. Gravar só com o ok dela (`ArtifactData update config/fontes` com `if_version`),
+  e **nunca** com segredo, token ou senha.
 
 ## Gestor de tarefas
-O gestor externo (Linear, Jira, Notion… ou nenhum) é configurado por quadro em `config/gestor`
-(`<skills>/tarefas/SCHEMA.md` § `config/gestor`); como ler cada um: `<skills>/tarefas/referencias/gestores/<tipo>.md`. Regra da relação
-(`SCHEMA.md` § Quadro × gestor): **tudo o que está aberto no gestor e atribuído à pessoa vira card**; o caminho de
-volta (quadro → gestor) é do `/boa-noite`.
-- **Sem `config/gestor`:** `config/preferencias.export.destino` preenchido → migração v2 (`SCHEMA.md` § Migrações).
-  Senão é `nenhum`: no fim do briefing, uma linha oferecendo configurar, com a sugestão tirada dos conectores ligados
-  (tools do Linear → `linear`; Atlassian → `jira`; Notion → `notion`). Configurar como em `quadro-tarefas` § Gestor;
-  "não uso" grava `{tipo: "nenhum", atualizado_em}` e a oferta não volta.
+O gestor externo (Linear, Jira, Notion, um `generico` como Asana ou GitHub Issues… ou nenhum) é configurado por quadro
+em `config/gestor` (`<skills>/tarefas/SCHEMA.md` § `config/gestor`); como ler cada um:
+`<skills>/tarefas/referencias/gestores/<tipo>.md` (no `generico`, a `receita` gravada). Regra da relação
+(`SCHEMA.md` § Quadro × gestor): **tudo o que está aberto no gestor e passa na `leitura` (padrão: atribuído à pessoa)
+vira card**; o caminho de volta (quadro → gestor) segue `escrever.*`, proposto no `/boa-noite`.
+- **Sem `config/gestor`:** é `nenhum` (quadro antigo com `export.destino`: `MIGRACOES.md` v1 → v2). No fim do briefing,
+  uma linha oferecendo configurar, com a sugestão tirada dos conectores de gestor de tarefas ligados. Configurar como
+  em `quadro-tarefas` § Gestor; "não uso" grava `{tipo: "nenhum", atualizado_em}` e a oferta não volta.
 - **Pendente** (`pendente: true`, ou sem o `config` obrigatório da receita, ou sem `mapa_status`, como depois da
   migração v2): não sincronizar. No fim do briefing, uma linha oferecendo completar: descobrir pelo conector o que a
   receita pede, mostrar e gravar só com o ok da pessoa (aí `pendente: false`).
@@ -130,43 +139,44 @@ volta (quadro → gestor) é do `/boa-noite`.
 ## Quadro e diário
 - **Quadro:** o desta conta (`ACHAR-QUADRO.md`). Coleções: `tasks`, `indice/ativos`, `config/preferencias`,
   `config/fontes`, `config/gestor`, `dias/<AAAA-MM-DD>`.
-- **Diário:** `dias/<AAAA-MM-DD>` no quadro (`bom_dia` e `boa_noite`). Se o quadro estiver inacessível e existir um
-  diário `.md` legado (as fontes dizem onde), ler; nunca gravar nele quando o quadro responde.
+- **Diário:** `dias/<AAAA-MM-DD>` no quadro (`bom_dia` e `boa_noite`), com a data no fuso do quadro.
 
 ## Passos
 
-### Step −1 — Nomear a conversa e achar o quadro (antes de qualquer coleta)
-Primeira ação: renomear a conversa com a data, para o usuário achar qual bom-dia é de qual dia:
-`mcp__ccd_session_mgmt__set_session_title` com `session_id: "self"` e título
-`☀️ Bom dia <dia da semana abreviado> DD/MM` (ex.: `☀️ Bom dia seg 28/09`; até 25 caracteres para caber no painel,
-o escopo já é a conta).
+### Step −1 — Achar o quadro e nomear a conversa (antes de qualquer coleta)
+Achar o quadro desta conta (`ACHAR-QUADRO.md` § Busca completa: uma vez por rodada). Não perguntar quais contextos
+entram: o escopo é o do quadro desta conta (o recorte por projeto é a pergunta do Step 0a, pela pasta).
 
-Depois, achar o quadro desta conta (`ACHAR-QUADRO.md` § Busca completa: uma vez por rodada). Não perguntar quais
-contextos entram: o escopo é o do quadro desta conta (o recorte por projeto é a pergunta do Step 0a, pela pasta).
+Com `config/preferencias.automacao.renomear_conversas: true` e a tool `set_session_title`: renomear esta conversa com a
+data, para o usuário achar qual bom-dia é de qual dia: `session_id: "self"`, título `☀️ <"Bom dia" no idioma> <dia da
+semana abreviado> <data curta do locale>` (ex.: `☀️ Bom dia seg 28/09`, `☀️ Good morning Mon 9/28`; até 25 caracteres).
 
 ### Step 0 — Ontem, preferências e fontes
 Em paralelo: `ArtifactData get config/preferencias`, `get config/fontes`, `get config/gestor`, `get config/projetos`, `get indice/ativos` e `list dias` (os ids
 são datas; pegar o mais recente com `boa_noite`). Escopo = `config/preferencias.escopo` (conferir o argumento como
-em § Escopo). Sem `config/fontes` → ler `~/.claude/tarefas/fontes-<escopo>.md`; sem os dois → padrão genérico.
+em § Escopo). `config/schema.versao` abaixo de 4 → `MIGRACOES.md` na primeira escrita.
 Do último fechamento: `pendente` e `foco_amanha` (ids de tarefas). Se tiver mais de 3 dias, dizer isso numa linha
-("último fechamento foi em DD/MM") e seguir. As preferências mandam em agendas, regras e formato.
+("último fechamento foi em <data>") e seguir. Preferências e fontes mandam em agendas, regras e formato.
+Hoje fora de `dias_uteis` → briefing curto (só o que vence hoje e o que a pessoa pedir), sem cobrar reunião.
 
 ### Step 0a — Recorte por pasta
 Seguir § Recorte por pasta: achar o projeto do `cwd`, perguntar quando couber e guardar a resposta (`recorte`, `agenda`)
 para os passos seguintes. Pasta raiz → seguir sem perguntar.
 
-### Step 0c — Memória da pasta
+### Step 0c — Memória da pasta (só com `automacao.ancora_memoria: true`)
 Seguir `<skills>/tarefas/SKILL.md` § 0b (âncora "tarefas vão para o quadro" na memória desta pasta e varredura de
 memórias que mandem tarefa para outro destino), em silêncio quando nada mudou.
 
 ### Step 0b — Recorrentes que chegaram
 `ArtifactData list recorrentes` (com `out_dir: <scratchpad>/rec`) e `get indice/ativos` (`out_dir`), depois
-`python3 <skills>/tarefas/recorrentes.py --dir <scratchpad>/rec --indice <indice.json> --saida <scratchpad>/rec-plano.json`.
+`sh <skills>/tarefas/py <skills>/tarefas/recorrentes.py --dir <scratchpad>/rec --indice <indice.json> --saida <scratchpad>/rec-plano.json --idioma <idioma> --locale <locale> --fuso <fuso> --area-padrao <area_padrao>`
+(sem `fuso`/`locale` nas preferências, omitir: o script usa os do sistema; saída 3 = o Python não carrega esse fuso:
+de novo sem `--fuso`, avisando em uma linha).
 Para cada item: `criar` → conferir com `get` que `tasks/<id>` está livre e `set` do card (`criado_em`/`atualizado_em`
 e o `em` do histórico = agora); `anotar` → linha no `historico` do card aberto. Nos dois, `update recorrentes/<rid>`
 `{ultima: <ocorrencia>}` e o índice, num `batch` só. Sem coleção `recorrentes` → pular calado. Os cards gerados entram no
 briefing e no Step 4 como qualquer tarefa (prazo hoje = "vence hoje"); recorrente com card aberto há mais de uma
-ocorrência sobe em ⚠️ ("<título> está atrasada desde DD/MM").
+ocorrência sobe em ⚠️ ("<título> está atrasada desde <data>").
 
 ### Step 1 — Coletar (em paralelo, só leitura, só as fontes do escopo)
 Fazer as chamadas independentes na mesma rodada.
@@ -175,19 +185,25 @@ Fazer as chamadas independentes na mesma rodada.
    inteiras (`ArtifactData query tasks` com `["status","in",[…]]`) só as que estão em Fazendo/Esperando, com prazo
    até hoje+3, paradas há `parada_dias`+, ou citadas no `foco_amanha`. A **Entrada** (cards criados sozinhos nas
    conversas de ontem) é triada no briefing: uma linha por card, com a sugestão de coluna.
-1. **Fontes do escopo** (as do texto de fontes, ou o padrão genérico). Elas servem para achar o que **ainda não está
-   no quadro** (comparar pelas `chaves`: `linear:`, `jira:`, `notion:`, `conversa:`, `pr:`, `gcal:`…) e o que mudou nelas.
-   O gestor de tarefas: todos os itens abertos atribuídos à pessoa, pela receita do tipo (paginar até o fim).
+1. **Fontes do escopo** (`config/fontes`, ou o padrão). Elas servem para achar o que **ainda não está no quadro**
+   (comparar pelas `chaves`: `<prefixo_chave do gestor>:`, `conversa:`, `pr:`, `agenda:` — e `gcal:` em quadro
+   antigo…) e o que mudou nelas. O gestor de tarefas: todos os itens abertos que passam na `leitura`, pela receita do
+   tipo (paginar até o fim).
 2. **Conversas** e **rotinas** desta conta (regra geral abaixo), sempre.
 
 **Regra geral**
-- **Conversas:** `list_sessions` (limit 30) só lista as conversas desta conta, e isso já é o filtro de escopo (não
-  filtrar por pasta). Se aparecer uma conversa claramente de outro escopo do usuário, deixá-la de fora e citar numa
-  linha. Considerar as não arquivadas com atividade nas últimas 72h. Das execuções de uma mesma rotina agendada,
-  pegar só a mais recente. Para cada conversa relevante, `list_events` com limit 3–5 e ler só a ÚLTIMA mensagem do
-  assistente: o que ficou pronto e o que ele pediu ao usuário. **Nunca supor o estado pelo título.**
-- **Rotinas:** `list_scheduled_tasks`. Para cada uma do escopo, `list_task_runs` recente: apontar execução que
-  falhou ou que deixou alerta.
+- **Conversas:** com `list_sessions` (app desktop): `limit 30`, só as conversas desta conta, e isso já é o filtro de
+  escopo (não filtrar por pasta). Se aparecer uma conversa claramente de outro escopo do usuário, deixá-la de fora e
+  citar numa linha. Considerar as não arquivadas com atividade nas últimas 72h. Das execuções de uma mesma rotina
+  agendada, pegar só a mais recente. Para cada conversa relevante, `list_events` com limit 3–5 e ler só a ÚLTIMA
+  mensagem do assistente: o que ficou pronto e o que ele pediu ao usuário. **Nunca supor o estado pelo título.**
+  Sem `list_sessions` (CLI): `sh <skills>/tarefas/py <skills>/boa-noite/conversas.py extrair --backend transcritos
+  --sessao cli:<id desta conversa> --quadro <id do artefato> --saida <scratchpad>/conv-bd --desde <3 dias atrás>
+  --fuso <fuso>` e ler, do fim de cada `.txt`, a última fala do assistente (sem `confirmar`: os cursores são do
+  `/boa-noite`; saída 3 = fuso não suportado pelo Python: de novo sem `--fuso`). Com `conversas.backend: "nenhum"`,
+  pular.
+- **Rotinas:** com `list_scheduled_tasks`: para cada uma do escopo, `list_task_runs` recente: apontar execução que
+  falhou ou que deixou alerta. Sem a tool, pular.
 
 Se alguma fonte falhar (MCP desconectado, auth), dizer qual em uma linha no fim do briefing e seguir com o resto.
 Nunca travar o briefing inteiro por uma fonte.
@@ -231,8 +247,9 @@ organizou) e não mexer. Pai do gestor sem card no quadro (não é da pessoa) �
 - **Estimativa não vira ⚠️ sem conferência.** Um número estimado (saldo, gasto, prazo calculado) só sobe como alerta
   depois de checar a fonte real; as fontes do escopo dizem onde conferir os casos conhecidos. Se não der pra
   conferir, escrever "estimado, não conferido" em vez de ⚠️.
-- **Reunião ↔ tarefas:** para cada reunião de hoje, procurar no índice tarefas com tag `pessoa:<nome>` de quem
-  participa (primeiro nome, sem acento), `projeto:`/`tema:` que apareçam no título, ou chave `gcal:<eventId>`.
+- **Reunião ↔ tarefas:** para cada reunião de hoje, procurar no índice tarefas com tag `pessoa:<id>` de quem
+  participa (casando participante com `config/fontes.pessoas` por nome, e-mail ou @; sem a lista, o primeiro nome
+  pelo slug), `projeto:`/`tema:` que apareçam no título, ou chave `agenda:<eventId>` (`gcal:` em quadro antigo).
   Ligadas → aparecem juntas no briefing ("15h com a Ana → *Proposta do fornecedor* segue em A fazer") e vão em
   `reunioes[].tarefas` no Step 4.
 - **Fora do quadro:** item de outra fonte externa, PR ou conversa ativa sem tarefa correspondente (nenhuma chave bate;
@@ -247,7 +264,7 @@ organizou) e não mexer. Pai do gestor sem card no quadro (não é da pessoa) �
 ### Step 3 — Briefing (~1 tela)
 **Seções extras e formato do escopo: os que as fontes definirem.** Sem formato nas fontes, este:
 ```
-☀️ Bom dia (<escopo>[ · <Projeto>]) — <dia da semana>, DD/MM
+☀️ Bom dia (<escopo>[ · <Projeto>]) — <dia da semana>, <data>
 
 ⚠️ <só se houver: prod/segurança/dinheiro/conflito entre conversas>
 
@@ -265,23 +282,25 @@ Conversas: tabela Conversa | Situação (1 frase) | Precisa de você?  (só as q
 (fontes que falharam: ...)
 ```
 
-Regras de redação: idioma de `config/preferencias.idioma`, direto, sem jargão de git. **Prioridades, decisões e
+Regras de redação: idioma de `config/preferencias.idioma` (os rótulos do modelo acima também), direto, sem jargão de
+git. **Prioridades, decisões e
 tarefas do dia são checkbox (`- [ ]`), nunca lista numerada**: o usuário marca o que vai fazer, sem ordem imposta.
 Cada item diz *o que é · em que pé está · próximo passo*. No máximo 3 decisões. Linkar as conversas como
-`[título](#<sessionId>)`.
+`[título](#<sessionId>)` no app; no CLI, o comando `claude --resume <id>`.
 
 ### Step 4 — Foco e registro
 Perguntar com **um** AskUserQuestion com as tarefas pendentes (Fazendo, A fazer, Esperando e o que o briefing trouxe)
-**em ordem de prioridade**: até 4 perguntas, todas `multiSelect: true`, até 4 opções cada (pedido de 14/10).
+**em ordem de prioridade**: até 4 perguntas, todas `multiSelect: true`, até 4 opções cada (sem `AskUserQuestion`:
+uma lista numerada em texto, e a pessoa responde com os números).
 
 - **Ordem:** a 1ª pergunta tem as mais prioritárias, a 4ª as menos. Prioridade = atrasada ou vence hoje > ligada a
   reunião de hoje > `prioridade: alta` > em Fazendo > prazo mais perto > `foco_amanha` do último fechamento > dias
-  parada. Não há rótulo de "hoje"/"semana": o header é só a faixa (`Prioridade 1`… `Prioridade 4`, ou o tema comum
+  parada. Não há rótulo de "hoje"/"semana": o header é só a faixa (`Prioridade 1`… `Prioridade 4`, no idioma, ou o tema comum
   quando a pergunta inteira é de um assunto só).
 - **Agrupar o que anda junto** numa opção só, para caber mais: mesmo projeto e mesma pessoa/tema e mesma próxima ação
-  (ex.: as 3 aulas do curso → `Aulas do curso (3)`; recados soltos → `Responder recados (5)`). A
+  (ex.: três revisões do mesmo documento → `Revisões do doc (3)`; recados soltos → `Responder recados (5)`). A
   `description` lista os itens. Marcar a opção = todos os cards do grupo entram no plano.
-- **Texto da pergunta:** `O que entra hoje? Use "Outro" para comentar alguma tarefa ou acrescentar outras.`
+- **Texto da pergunta** (no idioma): `O que entra hoje? Use "Outro" para comentar alguma tarefa ou acrescentar outras.`
 - Mais pendências do que cabe: a última pergunta diz quantas ficaram de fora ("mais 7 no quadro"); o usuário puxa
   qualquer uma pelo "Outro", ou roda o `/bom-dia` de novo.
 - `label` curto (até ~5 palavras, nome que o usuário reconhece); `description` = coluna · prazo · próximo passo.
@@ -297,7 +316,7 @@ O mesmo vale para `reunioes`, `foco` e `destravar`: unir com o que já está, nu
 Depois:
 - Gravar `dias/<hoje>` no quadro (`set` se não existe; `update` com `if_version` se já existe, sem apagar um
   `boa_noite` que esteja lá) com `bom_dia`: `gerado_em`, `plano` (os itens marcados, cada um com `tarefa: <id>`
-  quando houver, `feito: false`, e `chip: <task_id>` depois do Step 5), `reunioes` (hora, título, `tarefas` ligadas, nota de preparo), `foco` (ids) e
+  quando houver, `feito: false`, e `chip`/`conversa` depois do Step 5), `reunioes` (hora, título, `tarefas` ligadas, nota de preparo), `foco` (ids) e
   `destravar` (decisões). A página do quadro mostra isso no topo e o usuário marca os itens por lá.
 - Item marcado que **não tem tarefa** → criar no quadro (skill `tarefas`, `status: a_fazer`, com tags de
   projeto/pessoa) e pôr o id no `plano`. Tarefa escolhida que estava em `a_fazer`/`entrada` → mover para `fazendo`
@@ -309,21 +328,26 @@ Depois:
   (`escrever.criar` para criar, `escrever.editar` para editar; `nunca` → dizer que está desligado). A chave criada vai
   para o card.
 
-### Step 5 — Dar partida nas tarefas do dia (obrigatório, decidido em 14/10)
-O bom-dia não termina no briefing nem na pergunta: **todo item marcado no Step 4 sai daqui encaminhado**, sem
-perguntar "quer que eu abra?" e sem pular nenhum. Um encaminhamento por item (um grupo do Step 4 = um só). Antes, ver
-no card (`conversas`) e nas conversas do Step 1 se a tarefa já tem **conversa aberta** (não arquivada, não fechada
-pelo `fechar`) sobre ela:
+### Step 5 — Dar partida nas tarefas do dia (conforme `automacao.encaminhar_plano`)
+- **`nao`** → pular este passo: o plano gravado no Step 4 é o fim.
+- **`perguntar`** (padrão de quadro novo) → montar o encaminhamento de cada item marcado (abaixo) e oferecer numa
+  pergunta só, `multiSelect`, quais abrir agora; fazer só os escolhidos.
+- **`chips`** → **todo item marcado no Step 4 sai daqui encaminhado**, sem perguntar e sem pular nenhum.
 
-- **Tem conversa aberta** → é ela que segue: `mcp__ccd_session_mgmt__send_message` nela com um recado curto (contexto
-  do dia, o que entra hoje, o próximo passo do card) e o link para o usuário entrar. **Não abrir chip.** "undelivered"
-  → ela pega o recado quando for aberta; dizer isso e dar o link.
+Um encaminhamento por item (um grupo do Step 4 = um só). Antes, ver no card (`conversas`) e nas conversas do Step 1 se
+a tarefa já tem **conversa aberta** (não arquivada, não fechada pelo `fechar`) sobre ela:
+
+- **Tem conversa aberta** → é ela que segue: `send_message` nela com um recado curto (contexto do dia, o que entra
+  hoje, o próximo passo do card) e o link para o usuário entrar. **Não abrir tarefa sugerida.** "undelivered" → ela
+  pega o recado quando for aberta; dizer isso e dar o link. Sem `send_message` (CLI): o recado vai para o
+  `historico` do card e para o briefing, com o `claude --resume <id>`.
 - **Coisa rápida que cabe aqui** (responder, conferir, uma consulta) → fazer nesta conversa, com o ok antes de mandar
   mensagem ou gravar.
-- **Nenhuma conversa aberta** → **tarefa sugerida** (`mcp__ccd_session__spawn_task`, o chip que o usuário clica):
+- **Nenhuma conversa aberta** → **tarefa sugerida** (`spawn_task`, o chip que o usuário clica; sem ela, o mesmo
+  conteúdo em texto: título + prompt pronto para colar numa conversa nova):
   - `title`: nome curto (abaixo, § Nomes curtos); `tldr`: o que a conversa vai fazer hoje;
   - `prompt` autossuficiente (objetivo do dia, contexto, arquivos, links, próximo passo, e as conversas arquivadas
-    do card como referência), terminando com:
+    do card como referência), terminando com (no idioma do quadro):
     ```
     Card do quadro: <id> ("<título>")
     Tarefa do dia: dias/<AAAA-MM-DD>
@@ -332,24 +356,25 @@ pelo `fechar`) sobre ela:
     não pedem decisão ao usuário por lá.
     ```
 
-Gravar o `task_id` de cada chip no item do `plano` (`chip`; recado numa conversa → `conversa: <id>`), e no card uma linha de `historico` (`por: "bom-dia"`,
-"tarefa sugerida: <title>"). Rodar de novo no mesmo dia → não abrir chip de novo para item que já tem `chip`.
+Gravar o `task_id` de cada tarefa sugerida no item do `plano` (`chip`; recado numa conversa → `conversa: <id>`), e no
+card uma linha de `historico` (`por: "bom-dia"`, "tarefa sugerida: <title>"). Rodar de novo no mesmo dia → não
+encaminhar de novo item que já tem `chip` ou `conversa`.
 
-**Um chip por processo, não por projeto:** itens do mesmo processo (mesma linha de trabalho, mesmo código) podem ir
-juntos num chip; processos diferentes do mesmo projeto ganham um chip cada.
+**Uma tarefa sugerida por processo, não por projeto:** itens do mesmo processo (mesma linha de trabalho, mesmo código)
+podem ir juntos; processos diferentes do mesmo projeto ganham uma cada.
 
-**Nomes curtos** (pedido de 20/10; vale para chips, conversas e cards novos): **1 a 3 palavras**, o assunto do jeito
-que o usuário chama. Sem o nome do projeto (a pasta e o quadro já dizem qual é), sem data, sem emoji, sem `·`, sem
-verbo genérico. Ex.: `Dash de atividade`, `Fluxo comercial`, `Telas produção`. ❌ `Site · trabalho 20/10`,
+**Nomes curtos** (vale para tarefas sugeridas, conversas e cards novos): **1 a 3 palavras**, no idioma do quadro, o
+assunto do jeito que o usuário chama. Sem o nome do projeto (a pasta e o quadro já dizem qual é), sem data, sem emoji,
+sem `·`, sem verbo genérico. Ex.: `Dash de atividade`, `Fluxo comercial`, `Pricing page`. ❌ `Site · trabalho 20/10`,
 `App · dash de atividade dos clientes`.
 
-No fim, uma linha por item: feito aqui · recado em [conversa](#id) · `chip "<title>"`.
-Se `spawn_task` falhar, dizer qual item ficou sem chip e por quê; nunca omitir em silêncio.
+No fim, uma linha por item: feito aqui · recado em [conversa](#id) · `tarefa sugerida "<title>"`.
+Se `spawn_task` falhar, dizer qual item ficou sem tarefa sugerida e por quê; nunca omitir em silêncio.
 
 ## Anti-patterns
 - ❌ Misturar escopos: mostrar outro escopo nesta conta, consultar fonte de outro escopo, ou escrever no quadro/diário
   de outro escopo.
-- ❌ Gravar o plano do dia num diário `.md` legado quando o quadro responde (o diário é `dias/` no quadro).
+- ❌ Gravar o plano do dia fora do quadro quando o quadro responde (o diário é `dias/` no quadro).
 - ❌ Decidir o escopo pelo nome do app, por `CLAUDE_CONFIG_DIR`, ou pelo título/pasta da conversa. A pasta só sugere
   o recorte por projeto, e só depois da resposta (§ Recorte por pasta).
 - ❌ Restringir a um projeto sem perguntar, ou perguntar numa pasta raiz.
@@ -357,15 +382,16 @@ Se `spawn_task` falhar, dizer qual item ficou sem chip e por quê; nunca omitir 
   trabalho do `/boa-noite`. Criar item externo só quando o usuário pedir aquela criação; nunca por conta própria.
 - ❌ Deixar item aberto do gestor fora do quadro, ou duplicar card que já tem a chave dele.
 - ❌ Ler ou sincronizar ferramenta marcada como `legado`.
-- ❌ Terminar sem encaminhar as tarefas do dia (Step 5), ou abrir chip para tarefa que já tem conversa aberta.
+- ❌ Com `encaminhar_plano: "chips"`, terminar sem encaminhar as tarefas do dia; em qualquer modo, abrir tarefa
+  sugerida para tarefa que já tem conversa aberta.
 - ❌ Despejar lista crua (dezenas de issues, `git status`, todas as tarefas). Filtrar e traduzir.
 - ❌ Inventar o estado de uma conversa sem ler o fim dela.
 - ❌ Gravar segredo, token ou senha em `config/fontes`, `config/gestor` ou em qualquer documento do quadro.
 
 ## Melhoria contínua
 Aprendeu algo sobre o fluxo do usuário?
-- Preferência de formato ou de jeito de trabalhar → `config/preferencias` (campo certo ou `notas` com data), avisando
-  em uma linha.
-- Fonte nova, ID, regra ou seção do escopo → atualizar o texto das fontes onde ele mora (`config/fontes` com o ok do
-  usuário, ou o arquivo local `~/.claude/tarefas/fontes-<escopo>.md` se é de lá que veio). Nunca nesta skill.
+- Preferência de formato ou de jeito de trabalhar → `config/preferencias` (campo certo ou `notas`), avisando em uma
+  linha.
+- Ferramenta nova, ID, pessoa, regra ou seção do escopo → `config/fontes` (campo certo ou `texto`), com o ok do
+  usuário. Nunca nesta skill.
 - Mudança de processo que vale para todo mundo → este SKILL.md.

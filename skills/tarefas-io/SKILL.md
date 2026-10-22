@@ -2,29 +2,30 @@
 name: tarefas-io
 description: >
   Exporta e importa o quadro de tarefas (artefato com banco) de/para outro lugar: pacote JSON completo,
-  CSV, Markdown, ou outro task manager (o gestor de config/gestor — Linear, Jira, Notion — ou Todoist, planilha),
-  casando tarefas pelas chaves externas para não duplicar. Use quando pedirem "exporta minhas tarefas",
-  "backup do quadro", "importa do Linear/Jira/Notion/Todoist/CSV", "manda o quadro pro <ferramenta>",
-  "migra o quadro pra outra conta", "tarefas-io".
+  CSV, Markdown, ou outro gestor de tarefas (o de config/gestor — Linear, Jira, Notion, Asana, GitHub Issues… —
+  ou planilha), casando tarefas pelas chaves externas para não duplicar. Use quando pedirem "exporta minhas
+  tarefas", "backup do quadro", "importa do <ferramenta>/CSV", "manda o quadro pro <ferramenta>", "migra o quadro
+  pra outra conta", "tarefas-io" (English: "export my board", "import tasks from <tool>").
 user_invocable: true
-argument-hint: "export [json|csv|md|gestor|<destino>] | import <arquivo|gestor|linear|jira|notion|todoist|csv>"
+argument-hint: "export [json|csv|md|gestor|<destino>] | import <arquivo|gestor|<ferramenta>|csv>"
 ---
 
 # tarefas-io — tirar e colocar tarefas
 
-`<skills>` = a pasta-mãe do Base directory desta skill (vale em `~/.claude/skills` e dentro do plugin).
+`<skills>` = a pasta-mãe do Base directory desta skill (vale numa pasta de skills e dentro do plugin).
 
-Script: `<skills>/tarefas/io.py` (export e plano de import). Contrato: `<skills>/tarefas/SCHEMA.md`.
-Quadro: o desta conta, por `<skills>/tarefas/ACHAR-QUADRO.md`. Pacotes ficam em `~/.claude/tarefas-exports/`
-(fora da pasta de skills, que é sincronizada com outros agentes).
+Script: `sh <skills>/tarefas/py <skills>/tarefas/io.py` (export e plano de import). Contrato: `<skills>/tarefas/SCHEMA.md`.
+Quadro: o desta conta, por `<skills>/tarefas/ACHAR-QUADRO.md`. Pacotes ficam em `<dados>/tarefas-exports/`
+(`<dados>` = `sh <skills>/tarefas/py <skills>/tarefas/caminhos.py`; fora da pasta de skills).
+Textos do export (Markdown, prévia, histórico) no idioma do quadro: `--idioma <config/preferencias.idioma>`.
 
 ## Export
 1. Baixar com `ArtifactData list` + `out_dir: <scratchpad>/exp-<escopo>` as coleções `tasks`, `dias`,
-   `arquivo` e `config` (`query.limit: 1000`; se vier `next_cursor`, continuar).
-2. `python3 <skills>/tarefas/io.py export --dir <scratchpad>/exp-<escopo> --escopo <escopo> --out ~/.claude/tarefas-exports/quadro-tarefas-<escopo>-<AAAA-MM-DD>.json [--csv … --md …]`
-3. **Para outro task manager** (padrão: o gestor de `config/gestor`; sem ele, `config/preferencias.export.destino`,
-   obsoleto; ou o que o usuário disser):
-   - Gestor configurado: receita `<skills>/tarefas/referencias/gestores/<tipo>.md`, `mapa_status`, `regras` e a regra
+   `arquivo`, `recorrentes` e `config` (`query.limit: 1000`; se vier `next_cursor`, continuar).
+2. `sh <skills>/tarefas/py <skills>/tarefas/io.py export --idioma <idioma> --dir <scratchpad>/exp-<escopo> --escopo <escopo> --out <dados>/tarefas-exports/quadro-tarefas-<escopo>-<AAAA-MM-DD>.json [--csv … --md …]`
+3. **Para outro gestor de tarefas** (padrão: o de `config/gestor`; ou o que o usuário disser):
+   - Gestor configurado: receita `<skills>/tarefas/referencias/gestores/<tipo>.md` (no `generico`, a `receita` do
+     próprio `config/gestor`), `mapa_status`, `regras` e a regra
      da relação (`SCHEMA.md` § Quadro × gestor): só cards de nível de cima (sem `pai`, sem tag `gestor:fora`) vão; com
      chave do gestor → editar; sem chave (nem de `legado`) → buscar antes em todos os status e ligar se já existir,
      senão criar; só com chave de `legado` → só ligar se achar claramente. Cada operação respeita o seu modo:
@@ -40,15 +41,15 @@ Quadro: o desta conta, por `<skills>/tarefas/ACHAR-QUADRO.md`. Pacotes ficam em 
 ## Import
 1. **Converter para o formato v1** (lista de tarefas ou pacote `{tasks: {...}}`):
    - pacote deste sistema → já está;
-   - Linear, Jira, Notion → a leitura da receita (`<skills>/tarefas/referencias/gestores/<tipo>.md`), com
+   - gestor com receita (Linear, Jira, Notion, ou o `generico` configurado) → a leitura da receita, com
      `chaves: ["<prefixo>:<ID>"]`, `fonte: {tipo, ref}` e link para o item; status pela receita/`mapa_status`;
-   - Todoist/CSV → mapear colunas (título, status, prazo, projeto, etiquetas → `tags`). No CSV deste sistema,
+   - outra ferramenta/CSV → mapear colunas (título, status, prazo, projeto, etiquetas → `tags`). No CSV deste sistema,
      `projeto` = o principal e `projetos` = todos, como lista JSON (`["Site", "App"]`; o `io.py` aceita
      esse texto direto). Texto que não é lista JSON vale como um projeto só.
    Status desconhecido vira `entrada`. Tags no formato `tipo:valor` sem acento. Prefixo de `legado` não se importa sem
    a pessoa pedir.
 2. Baixar o índice atual (`ArtifactData get indice/ativos` com `out_dir`) e rodar
-   `python3 <skills>/tarefas/io.py plan --entrada <arquivo> --indice <indice.json> --saida <scratchpad>/plan [--com-config]`.
+   `sh <skills>/tarefas/py <skills>/tarefas/io.py plan --idioma <idioma> --entrada <arquivo> --indice <indice.json> --saida <scratchpad>/plan [--com-config]`.
 3. Mostrar a `preview.md` resumida (novas × atualizadas × conflitos) e **esperar o ok**.
 4. **Tarefas novas** (`op: set`): vão como estão, no `batch`. Antes, conferir com `get` que o id ainda está livre.
 5. **Tarefas existentes** (`op: update`, `"if_version": "PREENCHER"`): o arquivo NÃO vai direto. Para cada uma,
@@ -61,7 +62,7 @@ Quadro: o desta conta, por `<skills>/tarefas/ACHAR-QUADRO.md`. Pacotes ficam em 
    `indice-merge.json` (`data: {itens: …, atualizado_em}` + `if_version`). Para as tarefas **atualizadas**, a entrada
    do índice é refeita a partir do card final (depois da união): `p` = `projeto`, `ps` = `projetos`, `tags`, `k` =
    `chaves`, `s`, `t`, `pai`, `u`. O `indice-merge.json` traz só uma prévia dessa união.
-   `--com-config` (dias/arquivo/config) **substitui** documentos: só em quadro novo, logo depois do `quadro-tarefas`.
+   `--com-config` (dias/arquivo/recorrentes/config) **substitui** documentos: só em quadro novo, logo depois do `quadro-tarefas`.
 7. Conferir com um `list` de `tasks` e responder com as contagens (e os conflitos que ficaram de fora).
 
 ## Regras

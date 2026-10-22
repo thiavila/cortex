@@ -1,6 +1,4 @@
 <title>{{TITULO}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 {{FONTS}}
 {{CSS_BASE}}
 <style>
@@ -26,6 +24,8 @@
 .rel-row button.go { border: 0; background: transparent; color: var(--fg); text-align: left; padding: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
 .rel-row .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; flex: none; }
 .rel-add { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; }
+/* conversa do Claude Code (CLI): botão que copia o comando de retomada, com a cara do link de conversa */
+button.conv { background: transparent; cursor: pointer; text-align: left; }
 /* ===== recorrentes ===== */
 .chip.rec { background: var(--info-soft); color: var(--info); }
 .recs { display: flex; flex-direction: column; gap: 12px; }
@@ -46,31 +46,31 @@
 
 <div class="wrap">
   <header class="top">
-    <h1>Tarefas <span id="scopeName"></span><small id="scopeSub"></small></h1>
-    <span class="sync" id="sync"><span class="dot"></span><span id="syncText">Conectando ao banco…</span></span>
+    <h1><span id="scopeName"></span><small id="scopeSub"></small></h1>
+    <span class="sync" id="sync"><span class="dot"></span><span id="syncText"></span></span>
   </header>
 
   <div class="banner" id="banner" hidden></div>
-  <section class="today" id="today" hidden aria-label="Hoje"></section>
+  <section class="today" id="today" hidden data-i18n-aria="aria.hoje"></section>
   <div class="summary" id="summary" aria-live="polite"></div>
 
   <form class="quick" id="quickForm" autocomplete="off">
-    <input class="field" id="quickInput" aria-label="Nova tarefa" placeholder="Nova tarefa… (Enter para adicionar na Entrada)">
-    <button class="btn primary" type="submit" id="quickBtn">Adicionar</button>
+    <input class="field" id="quickInput" data-i18n-aria="quick.aria" data-i18n-ph="quick.ph">
+    <button class="btn primary" type="submit" id="quickBtn" data-i18n="quick.btn"></button>
   </form>
   <div class="hint" id="quickHint"></div>
 
   <div class="toolbar">
-    <div class="grow"><input class="field" id="q" type="search" aria-label="Buscar" placeholder="Buscar em título, tags, próximo passo e contexto"></div>
-    <div style="flex:0 1 190px;min-width:0"><select class="field" id="fProjeto" aria-label="Projeto"><option value="">Todos os projetos</option></select></div>
-    <div style="flex:0 1 190px;min-width:0"><select class="field" id="fTag" aria-label="Tag"><option value="">Todas as tags</option></select></div>
-    <div class="seg" role="group" aria-label="Área" id="fArea"></div>
-    <div class="seg" role="group" aria-label="Visualização" id="fView">
-      <button type="button" data-v="quadro">Quadro</button>
-      <button type="button" data-v="lista">Lista</button>
-      <button type="button" data-v="recorrentes">Recorrentes</button>
+    <div class="grow"><input class="field" id="q" type="search" data-i18n-aria="search.aria" data-i18n-ph="search.ph"></div>
+    <div style="flex:0 1 190px;min-width:0"><select class="field" id="fProjeto" data-i18n-aria="f.projeto"></select></div>
+    <div style="flex:0 1 190px;min-width:0"><select class="field" id="fTag" data-i18n-aria="f.tag"></select></div>
+    <div class="seg" role="group" data-i18n-aria="f.area" id="fArea"></div>
+    <div class="seg" role="group" data-i18n-aria="f.view" id="fView">
+      <button type="button" data-v="quadro" data-i18n="view.quadro"></button>
+      <button type="button" data-v="lista" data-i18n="view.lista"></button>
+      <button type="button" data-v="recorrentes" data-i18n="view.rec"></button>
     </div>
-    <button type="button" class="btn togglebtn" id="fRec" title="Mostrar ou esconder os cards gerados pelas tarefas recorrentes">↻ no quadro</button>
+    <button type="button" class="btn togglebtn" id="fRec" data-i18n="rec.toggle" data-i18n-title="rec.toggleTitle"></button>
   </div>
 
   <main id="main"></main>
@@ -80,22 +80,250 @@
 <div class="toast" id="toast" hidden></div>
 
 <script>
-// Quadro de tarefas v1. Contrato de dados: <skills>/tarefas/SCHEMA.md
-// O escopo (nome, áreas, prazos de "parada") vem de config/preferencias no banco.
-let ESCOPO = { nome: "", sub: "", areas: [{ id: "geral", nome: "Geral" }], parada_dias: 14, zumbi_dias: 60, exemploProjeto: "Projeto" };
+// Quadro de tarefas v4. Contrato de dados: <skills>/tarefas/SCHEMA.md
+// O escopo (nome, áreas, idioma, locale, fuso, prazos de "parada") vem de config/preferencias no banco.
 
-const STATUS = [
-  { id: "entrada", nome: "Entrada" }, { id: "a_fazer", nome: "A fazer" }, { id: "fazendo", nome: "Fazendo" },
-  { id: "esperando", nome: "Esperando" }, { id: "feito", nome: "Feito" },
-];
-const STATUS_NOME = Object.fromEntries(STATUS.map(s => [s.id, s.nome]));
-const stId = s => (s in STATUS_NOME ? s : "entrada");
+// ===== Idioma: dicionário (pt-BR e en; en é o reserva de qualquer outro idioma e de chave faltando) =====
+const I18N = {
+  "pt-BR": {
+    "tarefas": "Tarefas",
+    "sync.conectando": "Conectando ao banco…", "sync.ok": "Sincronizado · {n} tarefas", "sync.indisp": "Banco indisponível",
+    "sync.parou": "Sincronização parou", "sync.indice": "Índice não atualizou (o /boa-noite reconcilia)",
+    "banner.semDb": "O banco deste artefato não respondeu nesta visualização. Abra a página no claude.ai para ver e editar as tarefas.",
+    "banner.leitura": "Você tem acesso só de leitura a estas tarefas.",
+    "banner.caiu": "A conexão com o banco caiu ({code}). Recarregue a página.",
+    "aria.hoje": "Hoje",
+    "quick.aria": "Nova tarefa", "quick.ph": "Nova tarefa… (Enter para adicionar na {col})", "quick.btn": "Adicionar",
+    "hint": "Atalhos: {proj} projeto (pode repetir), {tag} tag, {pessoa} pessoa{areas}, {prio} prioridade, {prazo} prazo (ou {iso}).",
+    "hint.areas": " (ou {areas} para a área)", "hint.projEx": "Projeto", "hint.tagEx": "tema", "hint.pessoaEx": "pessoa", "hint.isoEx": "AAAA-MM-DD",
+    "search.aria": "Buscar", "search.ph": "Buscar em título, tags, próximo passo e contexto",
+    "f.projeto": "Projeto", "f.todosProj": "Todos os projetos", "f.tag": "Tag", "f.todasTags": "Todas as tags",
+    "f.area": "Área", "f.tudo": "Tudo", "f.view": "Visualização",
+    "view.quadro": "Quadro", "view.lista": "Lista", "view.rec": "Recorrentes",
+    "rec.toggle": "↻ no quadro", "rec.toggleTitle": "Mostrar ou esconder os cards gerados pelas tarefas recorrentes",
+    "st.entrada": "Entrada", "st.a_fazer": "A fazer", "st.fazendo": "Fazendo", "st.esperando": "Esperando", "st.feito": "Feito", "st.descartada": "Descartada",
+    "pr.alta": "alta", "pr.media": "média", "pr.baixa": "baixa",
+    "prazo.atrasada": "atrasada {n}d", "prazo.hoje": "vence hoje", "prazo.vence": "vence {d}", "prazo.prazo": "prazo {d}",
+    "parada": "parada há {n}d",
+    "toast.linkCopiado": "Link copiado", "toast.naoCopiou": "Não deu para copiar. Selecione o link e copie.",
+    "toast.cmdCopiado": "Comando copiado. Cole num terminal para retomar a conversa.", "toast.naoCopiouCmd": "Não deu para copiar. O comando é: {cmd}",
+    "toast.semPermissao": "Sem permissão para editar. A página ficou só leitura.",
+    "toast.cheio": "O banco está cheio. Arquive ou apague tarefas antigas.",
+    "toast.naoSalvou": "Não salvou: {msg}", "err.desconhecido": "erro desconhecido",
+    "err.conflito": "já existe uma tarefa com o id {id}; recarregue e tente de novo",
+    "err.recConflito": "já existe uma recorrente com o id {id}",
+    "toast.semDb": "O banco não está disponível nesta visualização.", "toast.apagada": "Tarefa apagada",
+    "toast.recTitulo": "Dê um título à recorrente", "toast.recDia": "Escolha pelo menos um dia da semana",
+    "toast.recApagada": "Recorrente apagada (os cards que ela já gerou ficam)",
+    "toast.ciclo": "Isso criaria um ciclo: a outra tarefa já está abaixo desta.",
+    "toast.httpsOnly": "Use um link que comece com https://",
+    "toast.convInvalida": "Cole o link da conversa (claude://claude.ai/epitaxy/…), o id local_…, ou o UUID de uma sessão do Claude Code (claude --resume …)",
+    "toast.convJa": "Essa conversa já está ligada",
+    "toast.appNaoAbriu": "O app não abriu daqui. Copiei o link: cole na barra do navegador.",
+    "toast.appNaoAbriu2": "O app não abriu daqui. Use {btn} na tarefa.",
+    "hist.criada": "Criada no quadro", "hist.status": "Status: {de} → {para}",
+    "hist.maeApagada": "Tarefa-mãe apagada: {t}", "hist.ligRemApagada": "Ligação removida: {t} foi apagada",
+    "hist.ligada": "Ligada a: {t}", "hist.ligRem": "Ligação removida: {t}",
+    "hist.prazo": "Prazo: {d}", "hist.prazoRem": "Prazo removido",
+    "hist.convLigada": "Conversa ligada: {t}", "hist.convDesligada": "Conversa desligada",
+    "hist.deixouSub": "Deixou de ser subtarefa de {t}", "hist.virouSub": "Virou subtarefa de {t}",
+    "hist.recAberta": "Nova ocorrência ({d}) chegou com esta ainda aberta",
+    "hist.recOcorr": "Ocorrência de {d} da recorrente ({regra})",
+    "hist.recPuladas1": "; 1 anterior passou sem card", "hist.recPuladasN": "; {n} anteriores passaram sem card",
+    "regra.dia1": "todo dia", "regra.diaN": "a cada {n} dias", "regra.sem1": "toda semana", "regra.semN": "a cada {n} semanas",
+    "regra.mes1": "todo mês", "regra.mesN": "a cada {n} meses", "regra.diaMes": "dia {d}", "regra.ultimo": "último", "regra.invalida": "regra inválida",
+    "today.plano": "Plano de hoje · {d}", "today.semPlano": "Sem plano gravado pelo /bom-dia.",
+    "today.reunioes": "Reuniões", "today.semReun": "Nenhuma reunião ligada.",
+    "sum.abertas": "Abertas", "sum.entrada": "Na entrada", "sum.fazendo": "Fazendo", "sum.esperando": "Esperando",
+    "sum.atrasadas": "Atrasadas", "sum.paradas": "Paradas {n}+ dias", "sum.feitas7": "Feitas em 7 dias",
+    "card.subtarefas": "{a}/{n} subtarefas", "card.ligada1": "1 ligada", "card.ligadaN": "{n} ligadas",
+    "card.recTitle": "Gerada por uma tarefa recorrente", "card.rec": "↻ recorrente", "card.auto": "automático",
+    "card.descartada": "descartada", "card.feita": "feita {d}", "card.fechada": "fechada {d}",
+    "conv.abrir": "Abrir conversa", "conv.arquivada": "Conversa arquivada", "conv.abrirCurto": "Abrir",
+    "conv.retomar": "Copiar comando para retomar", "conv.copiarCmd": "Copiar comando", "conv.copiarLink": "Copiar link",
+    "conv.chipArq": "arquivada", "conv.nenhuma": "Nenhuma conversa ligada a esta tarefa.",
+    "conv.ph": "Link ou id da conversa (claude://…, local_…, UUID ou claude --resume …)", "conv.titPh": "Título (opcional)",
+    "col.vazioEntrada": "Nada novo para triar.", "col.vazio": "Vazio.", "col.mostrando15": "Mostrando as 15 mais recentes. A Lista mostra todas.",
+    "list.semProjeto": "Sem projeto", "list.abertas": "{n} abertas",
+    "th.status": "Status", "th.tarefa": "Tarefa", "th.prio": "Prioridade", "th.prazo": "Prazo", "th.atualizada": "Atualizada",
+    "rf.editar": "Editar recorrente", "rf.nova": "Nova recorrente", "rf.titulo": "Título", "rf.tituloPh": "Ex.: Fechar o financeiro do mês",
+    "rf.repete": "Repete", "rf.diaria": "Diária", "rf.semanal": "Semanal", "rf.mensal": "Mensal", "rf.aCada": "A cada", "rf.dias": "Dias",
+    "rf.diaMes": "Dia do mês", "rf.diaMesTitle": "-1 = último dia do mês", "rf.comeca": "Começa em", "rf.antes": "Aparece antes (dias)",
+    "rf.projeto": "Projeto", "rf.prio": "Prioridade", "rf.proximo": "Próximo passo (vai em cada card)", "rf.proximoPh": "O que fazer quando ela aparecer",
+    "rf.cancelar": "Cancelar", "rf.salvar": "Salvar",
+    "recs.carregando": "Carregando as recorrentes…", "recs.aparece": "aparece {n}d antes", "recs.pausada": "pausada",
+    "recs.proxima": "próxima {d}", "recs.semProxima": "sem próxima", "recs.cardAberto": "card aberto ({s}) ↗",
+    "recs.editar": "editar", "recs.pausar": "pausar", "recs.retomar": "retomar", "recs.apagar": "apagar", "recs.confirmar": "confirmar",
+    "recs.vazioT": "Nenhuma tarefa recorrente",
+    "recs.vazio": "Crie uma aqui (ex.: \"Fechar o financeiro\", todo mês no dia 5). Quando chega o dia, ela vira um card em {col} no quadro.",
+    "recs.nota": "Cada ocorrência vira um card em {col} com prazo no dia, e anda pelo quadro como qualquer tarefa. Enquanto o card anterior estiver aberto, não nasce outro.",
+    "main.carregandoT": "Carregando as tarefas…", "main.carregando": "As tarefas ficam guardadas no banco deste artefato.",
+    "main.vazioT": "Nenhuma tarefa ainda", "main.vazio": "Escreva a primeira no campo acima e aperte Enter, ou peça ao Claude para registrar o que você está fazendo.",
+    "main.filtroT": "Nada com esses filtros", "main.filtro": "Limpe a busca ou troque o projeto e a tag.",
+    "d.aria": "Detalhe da tarefa", "d.titulo": "Título", "d.fechar": "Fechar", "d.status": "Status", "d.prio": "Prioridade",
+    "d.projetos": "Projetos", "d.projetosPh": "Site, Ferramentas", "d.projetosTitle": "Um ou mais, separados por vírgula; o primeiro é o principal",
+    "d.area": "Área", "d.prazo": "Prazo", "d.criada": "Criada", "d.tags": "Tags", "d.tagsPh": "pessoa:ana, tema:financeiro",
+    "d.prox": "Próximo passo", "d.proxPh": "A próxima ação concreta", "d.ctx": "Contexto", "d.ctxPh": "Pessoas, decisões, por que isso existe",
+    "d.ligacoes": "Ligações", "rel.mae": "mãe", "rel.sub": "sub", "rel.ligada": "ligada", "rel.nenhuma": "Nenhuma ligação ainda.",
+    "rel.tipoAria": "Tipo de ligação", "rel.ligarA": "Ligar a", "rel.subDe": "É subtarefa de", "rel.alvoAria": "Tarefa",
+    "rel.escolha": "Escolha a tarefa…", "ligar": "Ligar", "remover": "remover", "rel.deixarSub": "Deixar de ser subtarefa",
+    "d.conversas": "Conversas no Claude", "d.links": "Links e evidências", "links.nenhum": "Nenhum link ainda.",
+    "links.rotPh": "Rótulo (ex.: PR #356)", "links.add": "Adicionar",
+    "d.historico": "Histórico", "hist.notePh": "Anotar o que andou", "hist.anotar": "Anotar",
+    "d.origem": "Origem: {o}", "del.pergunta": "Apagar de vez?", "del.apagar": "Apagar", "del.cancelar": "Cancelar", "del.ask": "Apagar tarefa",
+  },
+  en: {
+    "tarefas": "Tasks",
+    "sync.conectando": "Connecting to the database…", "sync.ok": "Synced · {n} tasks", "sync.indisp": "Database unavailable",
+    "sync.parou": "Sync stopped", "sync.indice": "Index did not update (/boa-noite will reconcile it)",
+    "banner.semDb": "This artifact's database did not respond in this view. Open the page on claude.ai to see and edit the tasks.",
+    "banner.leitura": "You have read-only access to these tasks.",
+    "banner.caiu": "The connection to the database dropped ({code}). Reload the page.",
+    "aria.hoje": "Today",
+    "quick.aria": "New task", "quick.ph": "New task… (Enter to add to {col})", "quick.btn": "Add",
+    "hint": "Shortcuts: {proj} project (repeatable), {tag} tag, {pessoa} person{areas}, {prio} priority, {prazo} due date (or {iso}).",
+    "hint.areas": " (or {areas} for the area)", "hint.projEx": "Project", "hint.tagEx": "topic", "hint.pessoaEx": "person", "hint.isoEx": "YYYY-MM-DD",
+    "search.aria": "Search", "search.ph": "Search title, tags, next step and context",
+    "f.projeto": "Project", "f.todosProj": "All projects", "f.tag": "Tag", "f.todasTags": "All tags",
+    "f.area": "Area", "f.tudo": "All", "f.view": "View",
+    "view.quadro": "Board", "view.lista": "List", "view.rec": "Recurring",
+    "rec.toggle": "↻ on board", "rec.toggleTitle": "Show or hide the cards created by recurring tasks",
+    "st.entrada": "Inbox", "st.a_fazer": "To do", "st.fazendo": "Doing", "st.esperando": "Waiting", "st.feito": "Done", "st.descartada": "Discarded",
+    "pr.alta": "high", "pr.media": "medium", "pr.baixa": "low",
+    "prazo.atrasada": "overdue {n}d", "prazo.hoje": "due today", "prazo.vence": "due {d}", "prazo.prazo": "due {d}",
+    "parada": "idle {n}d",
+    "toast.linkCopiado": "Link copied", "toast.naoCopiou": "Couldn't copy. Select the link and copy it.",
+    "toast.cmdCopiado": "Command copied. Paste it in a terminal to resume the conversation.", "toast.naoCopiouCmd": "Couldn't copy. The command is: {cmd}",
+    "toast.semPermissao": "No permission to edit. The page is now read-only.",
+    "toast.cheio": "The database is full. Archive or delete old tasks.",
+    "toast.naoSalvou": "Not saved: {msg}", "err.desconhecido": "unknown error",
+    "err.conflito": "a task with id {id} already exists; reload and try again",
+    "err.recConflito": "a recurring task with id {id} already exists",
+    "toast.semDb": "The database is not available in this view.", "toast.apagada": "Task deleted",
+    "toast.recTitulo": "Give the recurring task a title", "toast.recDia": "Pick at least one weekday",
+    "toast.recApagada": "Recurring task deleted (the cards it already created stay)",
+    "toast.ciclo": "That would create a cycle: the other task is already below this one.",
+    "toast.httpsOnly": "Use a link that starts with https://",
+    "toast.convInvalida": "Paste the conversation link (claude://claude.ai/epitaxy/…), its local_… id, or a Claude Code session UUID (claude --resume …)",
+    "toast.convJa": "That conversation is already linked",
+    "toast.appNaoAbriu": "The app didn't open from here. I copied the link: paste it in the browser's address bar.",
+    "toast.appNaoAbriu2": "The app didn't open from here. Use {btn} in the task.",
+    "hist.criada": "Created on the board", "hist.status": "Status: {de} → {para}",
+    "hist.maeApagada": "Parent task deleted: {t}", "hist.ligRemApagada": "Link removed: {t} was deleted",
+    "hist.ligada": "Linked to: {t}", "hist.ligRem": "Link removed: {t}",
+    "hist.prazo": "Due date: {d}", "hist.prazoRem": "Due date removed",
+    "hist.convLigada": "Conversation linked: {t}", "hist.convDesligada": "Conversation unlinked",
+    "hist.deixouSub": "No longer a subtask of {t}", "hist.virouSub": "Became a subtask of {t}",
+    "hist.recAberta": "New occurrence ({d}) arrived while this one is still open",
+    "hist.recOcorr": "Occurrence on {d} of the recurring task ({regra})",
+    "hist.recPuladas1": "; 1 earlier one passed without a card", "hist.recPuladasN": "; {n} earlier ones passed without a card",
+    "regra.dia1": "every day", "regra.diaN": "every {n} days", "regra.sem1": "every week", "regra.semN": "every {n} weeks",
+    "regra.mes1": "every month", "regra.mesN": "every {n} months", "regra.diaMes": "day {d}", "regra.ultimo": "last", "regra.invalida": "invalid rule",
+    "today.plano": "Today's plan · {d}", "today.semPlano": "No plan saved by /bom-dia.",
+    "today.reunioes": "Meetings", "today.semReun": "No linked meetings.",
+    "sum.abertas": "Open", "sum.entrada": "In inbox", "sum.fazendo": "Doing", "sum.esperando": "Waiting",
+    "sum.atrasadas": "Overdue", "sum.paradas": "Idle {n}+ days", "sum.feitas7": "Done in 7 days",
+    "card.subtarefas": "{a}/{n} subtasks", "card.ligada1": "1 linked", "card.ligadaN": "{n} linked",
+    "card.recTitle": "Created by a recurring task", "card.rec": "↻ recurring", "card.auto": "automatic",
+    "card.descartada": "discarded", "card.feita": "done {d}", "card.fechada": "closed {d}",
+    "conv.abrir": "Open conversation", "conv.arquivada": "Archived conversation", "conv.abrirCurto": "Open",
+    "conv.retomar": "Copy resume command", "conv.copiarCmd": "Copy command", "conv.copiarLink": "Copy link",
+    "conv.chipArq": "archived", "conv.nenhuma": "No conversation linked to this task.",
+    "conv.ph": "Conversation link or id (claude://…, local_…, UUID or claude --resume …)", "conv.titPh": "Title (optional)",
+    "col.vazioEntrada": "Nothing new to triage.", "col.vazio": "Empty.", "col.mostrando15": "Showing the 15 most recent. The List shows them all.",
+    "list.semProjeto": "No project", "list.abertas": "{n} open",
+    "th.status": "Status", "th.tarefa": "Task", "th.prio": "Priority", "th.prazo": "Due", "th.atualizada": "Updated",
+    "rf.editar": "Edit recurring task", "rf.nova": "New recurring task", "rf.titulo": "Title", "rf.tituloPh": "E.g.: Close the month's books",
+    "rf.repete": "Repeats", "rf.diaria": "Daily", "rf.semanal": "Weekly", "rf.mensal": "Monthly", "rf.aCada": "Every", "rf.dias": "Days",
+    "rf.diaMes": "Day of month", "rf.diaMesTitle": "-1 = last day of the month", "rf.comeca": "Starts on", "rf.antes": "Shows up early (days)",
+    "rf.projeto": "Project", "rf.prio": "Priority", "rf.proximo": "Next step (goes on every card)", "rf.proximoPh": "What to do when it shows up",
+    "rf.cancelar": "Cancel", "rf.salvar": "Save",
+    "recs.carregando": "Loading recurring tasks…", "recs.aparece": "shows up {n}d early", "recs.pausada": "paused",
+    "recs.proxima": "next {d}", "recs.semProxima": "no next date", "recs.cardAberto": "open card ({s}) ↗",
+    "recs.editar": "edit", "recs.pausar": "pause", "recs.retomar": "resume", "recs.apagar": "delete", "recs.confirmar": "confirm",
+    "recs.vazioT": "No recurring tasks",
+    "recs.vazio": "Create one here (e.g. \"Close the books\", every month on day 5). When the day comes, it becomes a card in {col} on the board.",
+    "recs.nota": "Each occurrence becomes a card in {col}, due that day, and moves through the board like any task. While the previous card is open, no new one is created.",
+    "main.carregandoT": "Loading tasks…", "main.carregando": "Tasks are stored in this artifact's database.",
+    "main.vazioT": "No tasks yet", "main.vazio": "Type the first one in the field above and press Enter, or ask Claude to record what you're working on.",
+    "main.filtroT": "Nothing matches these filters", "main.filtro": "Clear the search or change the project and tag.",
+    "d.aria": "Task details", "d.titulo": "Title", "d.fechar": "Close", "d.status": "Status", "d.prio": "Priority",
+    "d.projetos": "Projects", "d.projetosPh": "Website, Tools", "d.projetosTitle": "One or more, comma-separated; the first one is the main one",
+    "d.area": "Area", "d.prazo": "Due date", "d.criada": "Created", "d.tags": "Tags", "d.tagsPh": "pessoa:ana, tema:finance",
+    "d.prox": "Next step", "d.proxPh": "The next concrete action", "d.ctx": "Context", "d.ctxPh": "People, decisions, why this exists",
+    "d.ligacoes": "Related tasks", "rel.mae": "parent", "rel.sub": "sub", "rel.ligada": "linked", "rel.nenhuma": "No related tasks yet.",
+    "rel.tipoAria": "Relation type", "rel.ligarA": "Link to", "rel.subDe": "Is a subtask of", "rel.alvoAria": "Task",
+    "rel.escolha": "Choose a task…", "ligar": "Link", "remover": "remove", "rel.deixarSub": "Stop being a subtask",
+    "d.conversas": "Claude conversations", "d.links": "Links and evidence", "links.nenhum": "No links yet.",
+    "links.rotPh": "Label (e.g. PR #356)", "links.add": "Add",
+    "d.historico": "History", "hist.notePh": "Note what moved forward", "hist.anotar": "Add note",
+    "d.origem": "Source: {o}", "del.pergunta": "Delete for good?", "del.apagar": "Delete", "del.cancelar": "Cancel", "del.ask": "Delete task",
+  },
+};
+const langOf = x => (/^pt/i.test(String(x || "")) ? "pt-BR" : "en");
+let LANG = langOf(navigator.language);
+function t(key, vars) {
+  let s = (I18N[LANG] || {})[key];
+  if (s == null) s = I18N.en[key];
+  if (s == null) return key;
+  return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
+}
+
+// ===== Locale, fuso e começo da semana =====
+const sysTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } };
+function okLocale(l) { if (!l) return null; try { new Intl.DateTimeFormat(String(l)); return String(l); } catch (e) { return null; } }
+function okTz(z) { if (!z) return null; try { new Intl.DateTimeFormat("en-US", { timeZone: String(z) }); return String(z); } catch (e) { return null; } }
+let LOCALE = "en-US", FUSO = "UTC", SEMANA = 1, MES_PRIMEIRO = false, ANO_PRIMEIRO = false, SEP_DATA = "/", F = {};
+function semanaDe(p) {
+  if (+p.semana_inicia === 1 || +p.semana_inicia === 7) return +p.semana_inicia;
+  try {
+    const L = new Intl.Locale(LOCALE), wi = typeof L.getWeekInfo === "function" ? L.getWeekInfo() : L.weekInfo;
+    if (wi && wi.firstDay >= 1 && wi.firstDay <= 7) return wi.firstDay;
+  } catch (e) {}
+  return /^en-US$/i.test(LOCALE) ? 7 : 1;
+}
+function setLocale(p) {
+  p = p || {};
+  LANG = langOf(p.idioma || navigator.language);
+  LOCALE = okLocale(p.locale) || okLocale(p.idioma) || okLocale(navigator.language) || "en-US";
+  FUSO = okTz(p.fuso) || sysTz();
+  SEMANA = semanaDe(p);
+  const dtf = o => new Intl.DateTimeFormat(LOCALE, o);
+  F = {
+    ymd: new Intl.DateTimeFormat("en-US", { timeZone: FUSO, year: "numeric", month: "2-digit", day: "2-digit" }),
+    // datas de calendário (AAAA-MM-DD) são formatadas em UTC a partir de Date.UTC: não mudam com o fuso
+    dm: dtf({ timeZone: "UTC", day: "2-digit", month: "2-digit" }),
+    dmy: dtf({ timeZone: "UTC", day: "2-digit", month: "2-digit", year: "2-digit" }),
+    dmhm: dtf({ timeZone: FUSO, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
+    dmyhm: dtf({ timeZone: FUSO, day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }),
+    dow: dtf({ timeZone: "UTC", weekday: "short" }),
+  };
+  // Ordem e separador da data numérica do locale (15/10/2026, 10/15/2026, 15.10.2026, 2026/10/15, 2026. 10. 15.…):
+  // o campo rápido entende ^dia-mês na mesma ordem, com ".", "/" ou "-".
+  try {
+    const ps = dtf({ timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(Date.UTC(2026, 9, 15, 12)));
+    const ord = ps.map(x => x.type).filter(x => x === "year" || x === "month" || x === "day");
+    MES_PRIMEIRO = ord.indexOf("month") < ord.indexOf("day"); ANO_PRIMEIRO = ord[0] === "year";
+    const lit = (ps.find(x => x.type === "literal") || {}).value || "/"; const sep = lit.replace(/[\s\u200e\u200f]/g, "").charAt(0);
+    SEP_DATA = "./-".includes(sep) && sep ? sep : "/";
+  } catch (e) { MES_PRIMEIRO = false; ANO_PRIMEIRO = false; SEP_DATA = "/"; }
+  document.documentElement.lang = LANG;
+}
+setLocale();
+
+let ESCOPO = { nome: "", sub: "", areas: [{ id: "geral", nome: "" }], area_padrao: "", parada_dias: 14, zumbi_dias: 60, exemploProjeto: "" };
+const areaPadrao = () => (ESCOPO.areas.some(a => a.id === ESCOPO.area_padrao) ? ESCOPO.area_padrao : ESCOPO.areas[0].id);
+
+const STATUS = ["entrada", "a_fazer", "fazendo", "esperando", "feito"];
+const stNome = s => t("st." + s);
+const stId = s => (STATUS.includes(s) ? s : "entrada");
 const PRIO_ORD = { alta: 0, media: 1, baixa: 2 };
+const prNome = p => (p in PRIO_ORD ? t("pr." + p) : String(p || ""));
 const DIA = 86400000;
 const HIST_MAX = 50;
 
-let db = null, canWrite = true;
-let tasks = [], hoje = null, loaded = false;
+let db = null, canWrite = true, prefsLoaded = false;
+let tasks = [], hoje = null, hojeKey = null, loaded = false; // hoje = o diário dias/<hojeKey> que está na tela
 const ui = { view: "quadro", q: "", projeto: "", tag: "", area: "", openId: null, confirmDel: false, showRec: true, recEdit: null };
 try { Object.assign(ui, JSON.parse(localStorage.getItem("tarefas-ui") || "{}"), { openId: null, confirmDel: false, q: "", recEdit: null }); } catch (e) {}
 function persistUi() { try { localStorage.setItem("tarefas-ui", JSON.stringify({ view: ui.view, projeto: ui.projeto, tag: ui.tag, area: ui.area, showRec: ui.showRec })); } catch (e) {} }
@@ -103,61 +331,104 @@ function persistUi() { try { localStorage.setItem("tarefas-ui", JSON.stringify({
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const nowIso = () => new Date().toISOString();
-const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const ISO_DIA = /^\d{4}-\d{2}-\d{2}$/;
+function ymdIn(d) { const p = {}; F.ymd.formatToParts(d).forEach(x => { p[x.type] = x.value; }); return p.year + "-" + p.month + "-" + p.day; }
+const todayStr = () => ymdIn(new Date()); // hoje no fuso do quadro
+const toUTC = s => { const [y, m, d] = String(s).slice(0, 10).split("-").map(Number); return Date.UTC(y, m - 1, d); };
+// Data curta (dia e mês na ordem do locale; ano só quando não é o ano corrente). AAAA-MM-DD = data de calendário;
+// carimbo ISO completo = o dia dele no fuso do quadro.
+function fmtData(s) {
+  if (!s) return "";
+  try { const dia = ISO_DIA.test(s) ? s : ymdIn(new Date(s)); return (dia.slice(0, 4) === todayStr().slice(0, 4) ? F.dm : F.dmy).format(new Date(toUTC(dia))); }
+  catch (e) { return String(s).slice(0, 10); }
+}
+function fmtDataHora(iso) {
+  if (!iso) return "";
+  try { const d = new Date(iso); return (ymdIn(d).slice(0, 4) === todayStr().slice(0, 4) ? F.dmhm : F.dmyhm).format(d); }
+  catch (e) { return String(iso); }
+}
+const dowNome = d => F.dow.format(new Date(Date.UTC(2024, 0, d))).replace(/\.$/, ""); // 1 jan 2024 = segunda; d ISO 1..7
 const areaNome = id => (ESCOPO.areas.find(a => a.id === id) || {}).nome || id;
-const byId = id => tasks.find(t => t.id === id);
-function ddmm(iso) { if (!iso) return ""; const [y, m, d] = iso.slice(0, 10).split("-"); return d + "/" + m + (y !== String(new Date().getFullYear()) ? "/" + y.slice(2) : ""); }
-function ddmmhh(iso) { if (!iso) return ""; const d = new Date(iso); return ddmm(iso.slice(0, 10)) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+const byId = id => tasks.find(x => x.id === id);
 function daysSince(iso) { return iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / DIA)) : 0; }
-function slug(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9:]+/g, "-").replace(/^-+|-+$/g, ""); }
-function normTag(raw) { let t = slug(raw); if (!t) return ""; if (!t.includes(":")) t = "tema:" + t; const [k, ...v] = t.split(":"); return k + ":" + v.join("-").replace(/^-+/, ""); }
-function tagLabel(t) { const i = t.indexOf(":"); return i < 0 ? t : t.slice(i + 1); }
+// Slug (SCHEMA § Slugs): letras e números de qualquer escrita ficam; acentos caem; o resto vira "-".
+function slug(s) { return String(s || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim().replace(/[^\p{L}\p{N}:]+/gu, "-").replace(/^-+|-+$/g, ""); }
+// Id de documento (tarefa, recorrente) fica em ASCII; título sem nada em ASCII (ex.: chinês) → "t-" + hash curto.
+function hash36(s) { let h = 0x811c9dc5; for (const ch of String(s)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); }
+function idSlug(s) {
+  const a = slug(s).replace(/:/g, "-").replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
+  return a || "t-" + hash36(s);
+}
+function normTag(raw) { let g = slug(raw); if (!g) return ""; if (!g.includes(":")) g = "tema:" + g; const [k, ...v] = g.split(":"); return k + ":" + v.join("-").replace(/^-+/, ""); }
+function tagLabel(g) { const i = g.indexOf(":"); return i < 0 ? g : g.slice(i + 1); }
 function projList(v) { const vistos = new Set(), out = []; (Array.isArray(v) ? v : String(v || "").split(",")).forEach(x => { x = String(x).trim(); const s = slug(x); if (x && s && !vistos.has(s)) { vistos.add(s); out.push(x); } }); return out; }
 function nomeProjeto(s) { const o = tasks.find(x => x.projeto && slug(x.projeto) === s); return o ? o.projeto : s.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "); }
 // v3: lista em `projetos`; card v2 (sem a lista) = `projeto` + os outros que estão só nas tags `projeto:`
-function projetosOf(t) { if (Array.isArray(t.projetos)) { const l = projList(t.projetos); if (l.length) return l; } const base = projList(t.projeto ? [t.projeto] : []); if (Array.isArray(t.projetos)) return base; const extra = (t.tags || []).filter(x => x.startsWith("projeto:")).map(x => x.slice(8)).filter(s => s && !base.some(p => slug(p) === s)).map(nomeProjeto); return projList(base.concat(extra)); }
+function projetosOf(tk) { if (Array.isArray(tk.projetos)) { const l = projList(tk.projetos); if (l.length) return l; } const base = projList(tk.projeto ? [tk.projeto] : []); if (Array.isArray(tk.projetos)) return base; const extra = (tk.tags || []).filter(x => x.startsWith("projeto:")).map(x => x.slice(8)).filter(s => s && !base.some(p => slug(p) === s)).map(nomeProjeto); return projList(base.concat(extra)); }
 function projPatch(lista) { return { projetos: lista, projeto: lista[0] || "" }; }
-function syncProjetoTag(tags, projetos) { const rest = (tags || []).filter(t => !t.startsWith("projeto:")); return [...new Set(projList(projetos).map(p => "projeto:" + slug(p)))].concat(rest); }
+function syncProjetoTag(tags, projetos) { const rest = (tags || []).filter(x => !x.startsWith("projeto:")); return [...new Set(projList(projetos).map(p => "projeto:" + slug(p)))].concat(rest); }
 
-function prazoInfo(t) {
-  if (!t.prazo || t.status === "feito") return null;
-  const diff = Math.round((new Date(t.prazo + "T12:00:00") - new Date(todayStr() + "T12:00:00")) / DIA);
-  if (diff < 0) return { cls: "late", txt: "atrasada " + (-diff) + "d" };
-  if (diff === 0) return { cls: "late", txt: "vence hoje" };
-  if (diff <= 3) return { cls: "soon", txt: "vence " + ddmm(t.prazo) };
-  return { cls: "", txt: "prazo " + ddmm(t.prazo) };
+function prazoInfo(tk) {
+  if (!tk.prazo || tk.status === "feito") return null;
+  const diff = dayDiff(todayStr(), tk.prazo);
+  if (diff < 0) return { cls: "late", txt: t("prazo.atrasada", { n: -diff }) };
+  if (diff === 0) return { cls: "late", txt: t("prazo.hoje") };
+  if (diff <= 3) return { cls: "soon", txt: t("prazo.vence", { d: fmtData(tk.prazo) }) };
+  return { cls: "", txt: t("prazo.prazo", { d: fmtData(tk.prazo) }) };
 }
-function staleInfo(t) {
-  if (t.status === "feito") return null;
-  const d = daysSince(t.atualizado_em || t.criado_em);
-  if (d >= (ESCOPO.zumbi_dias || 60)) return { cls: "zombie", txt: "parada há " + d + "d" };
-  if (d >= (ESCOPO.parada_dias || 14)) return { cls: "stale", txt: "parada há " + d + "d" };
+function staleInfo(tk) {
+  if (tk.status === "feito") return null;
+  const d = daysSince(tk.atualizado_em || tk.criado_em);
+  if (d >= (ESCOPO.zumbi_dias || 60)) return { cls: "zombie", txt: t("parada", { n: d }) };
+  if (d >= (ESCOPO.parada_dias || 14)) return { cls: "stale", txt: t("parada", { n: d }) };
   return null;
 }
 function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => el.hidden = true, 2800); }
-function setSync(state, text) { $("#sync").className = "sync " + state; $("#syncText").textContent = text; }
-function banner(msg) { const b = $("#banner"); b.hidden = !msg; b.textContent = msg || ""; }
+// sync e banner guardam a chave (não o texto) para trocar de idioma quando as preferências chegam
+let syncSt = { state: "", key: "sync.conectando", vars: null }, bannerSt = null;
+function paintSync() { $("#sync").className = "sync " + syncSt.state; $("#syncText").textContent = t(syncSt.key, syncSt.vars); }
+function setSync(state, key, vars) { syncSt = { state, key, vars }; paintSync(); }
+function paintBanner() { const b = $("#banner"); b.hidden = !bannerSt; b.textContent = bannerSt ? t(bannerSt.key, bannerSt.vars) : ""; }
+function banner(key, vars) { bannerSt = key ? { key, vars } : null; paintBanner(); }
 
-// ===== Conversas (links claude://) =====
-const convLink = c => c.link || ("claude://claude.ai/epitaxy/" + c.id);
-function mainConv(t) { const cs = t.conversas || []; return cs.find(c => !c.arquivada) || cs[0] || null; }
-function convBtn(c, label) { return `<a class="conv ${c.arquivada ? "arch" : ""}" href="${esc(convLink(c))}" target="_blank" rel="noopener" data-conv="${esc(convLink(c))}" title="${esc(c.titulo || "")}">${label || (c.arquivada ? "Conversa arquivada ↗" : "Abrir conversa ↗")}</a>`; }
-async function copyText(txt) { try { await navigator.clipboard.writeText(txt); toast("Link copiado"); } catch (e) { toast("Não deu para copiar. Selecione o link e copie."); } }
+// ===== Conversas: app (claude://, id local_…) e Claude Code (cli:<uuid>, retoma com claude --resume) =====
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const isCli = c => String(c.id || "").startsWith("cli:") || (!c.link && !!c.retomar);
+const resumeCmd = c => c.retomar || ("claude --resume " + String(c.id || "").replace(/^cli:/, ""));
+const convLink = c => c.link || (isCli(c) ? "" : "claude://claude.ai/epitaxy/" + c.id);
+function mainConv(tk) { const cs = tk.conversas || []; return cs.find(c => !c.arquivada) || cs[0] || null; }
+function convBtn(c, label) {
+  if (isCli(c)) {
+    const cmd = resumeCmd(c);
+    return `<button type="button" class="conv ${c.arquivada ? "arch" : ""}" data-resume="${esc(cmd)}" title="${esc((c.titulo ? c.titulo + " · " : "") + cmd)}">${esc(label || t("conv.retomar"))}</button>`;
+  }
+  const link = convLink(c);
+  return `<a class="conv ${c.arquivada ? "arch" : ""}" href="${esc(link)}" target="_blank" rel="noopener" data-conv="${esc(link)}" title="${esc(c.titulo || "")}">${esc(label || (c.arquivada ? t("conv.arquivada") : t("conv.abrir")) + " ↗")}</a>`;
+}
+// Aceita link claude://, id local_…, UUID solto, cli:<uuid> ou "claude --resume <uuid>".
+function parseConv(raw) {
+  let m = String(raw || "").match(/local_[A-Za-z0-9-]{8,}/);
+  if (m) return { id: m[0], link: "claude://claude.ai/epitaxy/" + m[0] };
+  m = String(raw || "").match(UUID_RE);
+  if (m) return { id: "cli:" + m[0], link: null, retomar: "claude --resume " + m[0] };
+  return null;
+}
+async function copyText(txt, okKey, failMsg) { try { await navigator.clipboard.writeText(txt); toast(t(okKey || "toast.linkCopiado")); } catch (e) { toast(failMsg || t("toast.naoCopiou")); } }
 
 // ===== Escritas: uma por vez por documento =====
 const chains = {};
 function queue(key, fn) {
   const run = (chains[key] || Promise.resolve()).then(fn).catch(e => {
-    if (e && e.code === "invalid_argument" && canWrite && key !== "indice") { canWrite = false; render(); toast("Sem permissão para editar. A página ficou só leitura."); }
-    else if (e && e.code === "quota_exceeded") toast("O banco está cheio. Arquive ou apague tarefas antigas.");
-    else if (key !== "indice") toast("Não salvou: " + (e && e.message || "erro desconhecido"));
-    else setSync("off", "Índice não atualizou (o boa noite reconcilia)");
+    if (e && e.code === "invalid_argument" && canWrite && key !== "indice") { canWrite = false; render(); toast(t("toast.semPermissao")); }
+    else if (e && e.code === "quota_exceeded") toast(t("toast.cheio"));
+    else if (key !== "indice") toast(t("toast.naoSalvou", { msg: (e && e.message) || t("err.desconhecido") }));
+    else setSync("off", "sync.indice");
     return false;
   });
   chains[key] = run; return run;
 }
 const col = () => db.collection("tasks");
-function indexEntry(t) { return { t: t.titulo, s: t.status, p: projetosOf(t)[0] || "", ps: projetosOf(t), tags: t.tags || [], k: t.chaves || [], pai: t.pai || null, u: t.atualizado_em }; }
+function indexEntry(tk) { return { t: tk.titulo, s: tk.status, p: projetosOf(tk)[0] || "", ps: projetosOf(tk), tags: tk.tags || [], k: tk.chaves || [], pai: tk.pai || null, u: tk.atualizado_em }; }
 function touchIndex(entries, after) {
   if (!db) return;
   const ref = db.doc("indice/ativos");
@@ -170,84 +441,97 @@ function touchIndex(entries, after) {
 }
 function patchTask(id, patch, nota) {
   if (!db || !canWrite) return;
-  const t = byId(id); if (!t) return;
+  const tk = byId(id); if (!tk) return;
   const body = Object.assign({}, patch, { atualizado_em: nowIso() });
-  if (nota) body.historico = [{ em: body.atualizado_em, texto: nota, por: "pagina" }, ...(t.historico || [])].slice(0, HIST_MAX);
-  Object.assign(t, body);
+  if (nota) body.historico = [{ em: body.atualizado_em, texto: nota, por: "pagina" }, ...(tk.historico || [])].slice(0, HIST_MAX);
+  Object.assign(tk, body);
   const w = queue(id, () => col().doc(id).update(body).then(() => true));
-  touchIndex({ [id]: indexEntry(t) }, w);
+  touchIndex({ [id]: indexEntry(tk) }, w);
   render();
 }
 function setStatus(id, status, resolucao) {
-  const t = byId(id); if (!t) return;
+  const tk = byId(id); if (!tk) return;
   const res = status === "feito" ? (resolucao || "concluida") : null;
-  if (t.status === status && (t.resolucao || null) === res) return;
-  const de = t.status === "feito" && t.resolucao === "descartada" ? "Descartada" : STATUS_NOME[t.status];
-  const para = res === "descartada" ? "Descartada" : STATUS_NOME[status];
-  patchTask(id, { status, resolucao: res, concluido_em: status === "feito" ? nowIso() : null }, "Status: " + de + " → " + para);
+  if (tk.status === status && (tk.resolucao || null) === res) return;
+  const de = tk.status === "feito" && tk.resolucao === "descartada" ? t("st.descartada") : stNome(tk.status);
+  const para = res === "descartada" ? t("st.descartada") : stNome(status);
+  patchTask(id, { status, resolucao: res, concluido_em: status === "feito" ? nowIso() : null }, t("hist.status", { de, para }));
+}
+// ===== Campo rápido =====
+const PRIO_ALIAS = { alta: "alta", high: "alta", "média": "media", media: "media", medium: "media", med: "media", baixa: "baixa", low: "baixa" };
+function dataValida(y, m, d) { y = +y; m = +m; d = +d; if (m < 1 || m > 12 || d < 1 || d > 31) return null; const dt = new Date(Date.UTC(y, m - 1, d)); return dt.getUTCMonth() === m - 1 ? String(y).padStart(4, "0") + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0") : null; }
+// ^data do campo rápido, na ordem do locale e com ".", "/" ou "-": ^22/10 (pt-BR), ^10/22 (en-US), ^22.10.2026 (de-DE),
+// ^2026/10/22 (ja-JP). Ano de 4 dígitos na frente = sempre ano-mês-dia (inclui o ISO ^2026-10-22). Sem ano = este ano.
+function dataRapida(a, b, c) {
+  const ano = s => (s.length === 4 ? s : s.length === 2 ? "20" + s : null);
+  let y, mo, d;
+  if (c == null) { if (a.length > 2) return null; [mo, d] = MES_PRIMEIRO ? [a, b] : [b, a]; y = todayStr().slice(0, 4); }
+  else if (a.length === 4) { y = a; mo = b; d = c; }
+  else if (a.length > 2) return null;
+  else if (c.length === 4 || !ANO_PRIMEIRO) { y = ano(c); [mo, d] = MES_PRIMEIRO ? [a, b] : [b, a]; }
+  else { y = ano(a); mo = b; d = c; } // ano curto na frente (ja-JP: ^26/10/22)
+  return y ? dataValida(y, mo, d) : null;
 }
 function parseQuick(text) {
-  const t = { projetos: [], prioridade: "media", area: ESCOPO.areas[0].id, prazo: null, tags: [] };
-  let titulo = text.replace(/#([\p{L}\p{N}_.-]+)/gu, (_, p) => { t.projetos.push(p); return ""; })
-    .replace(/!(alta|media|média|baixa)\b/giu, (_, p) => { t.prioridade = p.toLowerCase().replace("é", "e"); return ""; })
-    .replace(/@([\p{L}\p{N}_-]+)/gu, (m, a) => { const k = a.toLowerCase(); if (ESCOPO.areas.some(x => x.id === k)) { t.area = k; } else { t.tags.push("pessoa:" + slug(a)); } return ""; })
-    .replace(/\+([\p{L}\p{N}_:-]+)/gu, (_, g) => { const n = normTag(g); if (n) t.tags.push(n); return ""; })
-    .replace(/\^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g, (_, d, m, y) => {
-      const yy = y ? (y.length === 2 ? "20" + y : y) : String(new Date().getFullYear());
-      t.prazo = yy + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0"); return "";
+  const p = { projetos: [], prioridade: "media", area: areaPadrao(), prazo: null, tags: [] };
+  let titulo = text.replace(/#([\p{L}\p{N}_.-]+)/gu, (_, x) => { p.projetos.push(x); return ""; })
+    .replace(/!(alta|média|media|medium|med|baixa|high|low)\b/giu, (_, x) => { p.prioridade = PRIO_ALIAS[x.toLowerCase()] || "media"; return ""; })
+    .replace(/@([\p{L}\p{N}_-]+)/gu, (m, a) => { const k = a.toLowerCase(); if (ESCOPO.areas.some(x => x.id === k)) { p.area = k; } else { p.tags.push("pessoa:" + slug(a)); } return ""; })
+    .replace(/\+([\p{L}\p{N}_:-]+)/gu, (_, g) => { const n = normTag(g); if (n) p.tags.push(n); return ""; })
+    .replace(/\^(\d{1,4})([./-]) ?(\d{1,2})(?:\2 ?(\d{1,4}))?(\.?)(?!\d|[./-]\d)/g, (m, a, sep, b, c, ponto) => {
+      const v = dataRapida(a, b, c); if (!v) return m; p.prazo = v; return sep === "." ? "" : ponto;
     }).replace(/\s+/g, " ").trim();
-  t.projetos = projList(t.projetos); t.projeto = t.projetos[0] || "";
-  t.tags = syncProjetoTag([...new Set(t.tags)], t.projetos);
-  return Object.assign(t, { titulo });
+  p.projetos = projList(p.projetos); p.projeto = p.projetos[0] || "";
+  p.tags = syncProjetoTag([...new Set(p.tags)], p.projetos);
+  return Object.assign(p, { titulo });
 }
 let indiceIds = new Set();
-function newId(titulo) { let base = slug(titulo).replace(/:/g, "-").slice(0, 40).replace(/-+$/, "") || "tarefa"; let id = base, n = 2; while (byId(id) || indiceIds.has(id)) id = base + "-" + n++; return id; }
+function newId(titulo) { const base = idSlug(titulo); let id = base, n = 2; while (byId(id) || indiceIds.has(id)) id = base + "-" + n++; return id; }
 async function addTask(text) {
-  if (!db || !canWrite) { toast("O banco não está disponível nesta visualização."); return; }
+  if (!db || !canWrite) { toast(t("toast.semDb")); return; }
   const p = parseQuick(text); if (!p.titulo) return;
   const now = nowIso(), id = newId(p.titulo);
   const body = {
     titulo: p.titulo, status: "entrada", resolucao: null, prioridade: p.prioridade, area: p.area, projeto: p.projeto, projetos: p.projetos,
     tags: p.tags, chaves: [], pai: null, relacionadas: [], prazo: p.prazo, proximo_passo: "", contexto: "", resumo: "",
-    links: [], conversas: [], historico: [{ em: now, texto: "Criada no quadro", por: "pagina" }],
+    links: [], conversas: [], historico: [{ em: now, texto: t("hist.criada"), por: "pagina" }],
     fonte: { tipo: "manual", ref: "" }, auto: false, criado_em: now, atualizado_em: now, concluido_em: null,
   };
   tasks.push(Object.assign({ id }, body)); render();
   const w = queue(id, async () => {
     const s = await col().doc(id).get();
-    if (s.exists) throw { code: "conflito", message: "já existe uma tarefa com o id " + id + "; recarregue e tente de novo" };
+    if (s.exists) throw { code: "conflito", message: t("err.conflito", { id }) };
     await col().doc(id).set(body); return true;
   });
   touchIndex({ [id]: indexEntry(Object.assign({ id }, body)) }, w);
 }
 function deleteTask(id) {
   if (!db || !canWrite) return;
-  const t = byId(id); if (!t) return;
+  const tk = byId(id); if (!tk) return;
   // desfaz ligações que apontam para ela
-  tasks.filter(x => x.pai === id).forEach(x => patchTask(x.id, { pai: null }, "Tarefa-mãe apagada: " + t.titulo));
-  tasks.filter(x => (x.relacionadas || []).includes(id)).forEach(x => patchTask(x.id, { relacionadas: x.relacionadas.filter(r => r !== id) }, "Ligação removida: " + t.titulo + " foi apagada"));
+  tasks.filter(x => x.pai === id).forEach(x => patchTask(x.id, { pai: null }, t("hist.maeApagada", { t: tk.titulo })));
+  tasks.filter(x => (x.relacionadas || []).includes(id)).forEach(x => patchTask(x.id, { relacionadas: x.relacionadas.filter(r => r !== id) }, t("hist.ligRemApagada", { t: tk.titulo })));
   tasks = tasks.filter(x => x.id !== id); ui.openId = null; ui.confirmDel = false; render();
   const w = queue(id, () => col().doc(id).delete().then(() => true));
   touchIndex({ [id]: { s: "apagada", u: nowIso() } }, w);
-  toast("Tarefa apagada");
+  toast(t("toast.apagada"));
 }
 function linkRelated(a, b) {
   const ta = byId(a), tb = byId(b); if (!ta || !tb || a === b) return;
-  if (!(ta.relacionadas || []).includes(b)) patchTask(a, { relacionadas: [...(ta.relacionadas || []), b] }, "Ligada a: " + tb.titulo);
-  if (!(tb.relacionadas || []).includes(a)) patchTask(b, { relacionadas: [...(tb.relacionadas || []), a] }, "Ligada a: " + ta.titulo);
+  if (!(ta.relacionadas || []).includes(b)) patchTask(a, { relacionadas: [...(ta.relacionadas || []), b] }, t("hist.ligada", { t: tb.titulo }));
+  if (!(tb.relacionadas || []).includes(a)) patchTask(b, { relacionadas: [...(tb.relacionadas || []), a] }, t("hist.ligada", { t: ta.titulo }));
 }
 function unlinkRelated(a, b) {
   const ta = byId(a), tb = byId(b);
-  if (ta) patchTask(a, { relacionadas: (ta.relacionadas || []).filter(x => x !== b) }, "Ligação removida: " + (tb ? tb.titulo : b));
-  if (tb) patchTask(b, { relacionadas: (tb.relacionadas || []).filter(x => x !== a) }, "Ligação removida: " + (ta ? ta.titulo : a));
+  if (ta) patchTask(a, { relacionadas: (ta.relacionadas || []).filter(x => x !== b) }, t("hist.ligRem", { t: tb ? tb.titulo : b }));
+  if (tb) patchTask(b, { relacionadas: (tb.relacionadas || []).filter(x => x !== a) }, t("hist.ligRem", { t: ta ? ta.titulo : a }));
 }
 // ===== Recorrentes (coleção recorrentes; regra igual à de <skills>/tarefas/recorrentes.py) =====
 let recs = [], recLoaded = false;
-const DOW = ["", "seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
-const ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-const addDays = (s, n) => { const d = new Date(s + "T12:00:00"); d.setDate(d.getDate() + n); return ymd(d); };
-const isoDow = s => { const g = new Date(s + "T12:00:00").getDay(); return g === 0 ? 7 : g; };
-const dayDiff = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / DIA);
+// datas AAAA-MM-DD contadas em UTC: dia de calendário puro, sem horário de verão nem fuso no meio
+const addDays = (s, n) => new Date(toUTC(s) + n * DIA).toISOString().slice(0, 10);
+const isoDow = s => { const g = new Date(toUTC(s)).getUTCDay(); return g === 0 ? 7 : g; };
+const dayDiff = (a, b) => Math.round((toUTC(b) - toUTC(a)) / DIA);
 function recInicio(r) { return (r.regra && r.regra.inicio) || (r.criado_em || "").slice(0, 10) || todayStr(); }
 function recMatch(r, s) {
   const g = r.regra || {}, ini = recInicio(r), n = Math.max(1, +g.a_cada || 1);
@@ -261,7 +545,7 @@ function recMatch(r, s) {
   if (g.tipo === "mensal") {
     const [y, m, d] = s.split("-").map(Number), [yi, mi] = ini.split("-").map(Number);
     if (((y - yi) * 12 + (m - mi)) % n !== 0) return false;
-    const ult = new Date(y, m, 0).getDate(), alvo = +g.dia === -1 ? ult : Math.min(+g.dia || +ini.slice(8), ult);
+    const ult = new Date(Date.UTC(y, m, 0)).getUTCDate(), alvo = +g.dia === -1 ? ult : Math.min(+g.dia || +ini.slice(8), ult);
     return d === alvo;
   }
   return false;
@@ -269,17 +553,18 @@ function recMatch(r, s) {
 function recNext(r, from) { let s = from > recInicio(r) ? from : recInicio(r); for (let i = 0; i < 800; i++, s = addDays(s, 1)) if (recMatch(r, s)) return s; return null; }
 function recRegraTxt(r) {
   const g = r.regra || {}, n = Math.max(1, +g.a_cada || 1);
-  if (g.tipo === "diaria") return n === 1 ? "todo dia" : "a cada " + n + " dias";
-  if (g.tipo === "semanal") return (n === 1 ? "toda semana" : "a cada " + n + " semanas") + " · " + ((g.dias && g.dias.length) ? g.dias : [isoDow(recInicio(r))]).map(d => DOW[d]).join(", ");
-  if (g.tipo === "mensal") return (n === 1 ? "todo mês" : "a cada " + n + " meses") + " · dia " + (+g.dia === -1 ? "último" : (g.dia || +recInicio(r).slice(8)));
-  return "regra inválida";
+  if (g.tipo === "diaria") return n === 1 ? t("regra.dia1") : t("regra.diaN", { n });
+  if (g.tipo === "semanal") return (n === 1 ? t("regra.sem1") : t("regra.semN", { n })) + " · " + ((g.dias && g.dias.length) ? g.dias : [isoDow(recInicio(r))]).map(dowNome).join(", ");
+  if (g.tipo === "mensal") return (n === 1 ? t("regra.mes1") : t("regra.mesN", { n })) + " · " + t("regra.diaMes", { d: +g.dia === -1 ? t("regra.ultimo") : (g.dia || +recInicio(r).slice(8)) });
+  return t("regra.invalida");
 }
 const recTaskId = (rid, s) => (rid + "--" + s).slice(0, 60);
-const recOpen = rid => tasks.find(t => t.recorrente === rid && t.status !== "feito");
+const recOpen = rid => tasks.find(x => x.recorrente === rid && x.status !== "feito");
 // Gera o card da ocorrência que chegou (até hoje + antecedência). Uma aberta por recorrente: se a anterior
 // ainda está aberta, não duplica, só anota nela. Ocorrências que passaram sem ninguém abrir o quadro viram "puladas".
+// Espera as preferências: "hoje" é no fuso delas e a área padrão vem delas.
 async function materializar() {
-  if (!db || !canWrite || !loaded || !recLoaded) return;
+  if (!db || !canWrite || !loaded || !recLoaded || !prefsLoaded) return;
   const hojeS = todayStr();
   for (const r of recs) {
     if (r.ativo === false) continue;
@@ -291,16 +576,16 @@ async function materializar() {
     const aberta = recOpen(r.id), now = nowIso();
     const ok = await queue("rec:" + r.id, async () => {
       if (aberta) {
-        await col().doc(aberta.id).update({ historico: [{ em: now, texto: "Nova ocorrência (" + ddmm(alvo) + ") chegou com esta ainda aberta", por: "pagina" }, ...(aberta.historico || [])].slice(0, HIST_MAX), atualizado_em: now });
+        await col().doc(aberta.id).update({ historico: [{ em: now, texto: t("hist.recAberta", { d: fmtData(alvo) }), por: "pagina" }, ...(aberta.historico || [])].slice(0, HIST_MAX), atualizado_em: now });
       } else {
         const id = recTaskId(r.id, alvo), ref = col().doc(id);
         if (!(await ref.get()).exists) {
           const body = {
-            titulo: r.titulo, status: "a_fazer", resolucao: null, prioridade: r.prioridade || "media", area: r.area || ESCOPO.areas[0].id,
+            titulo: r.titulo, status: "a_fazer", resolucao: null, prioridade: r.prioridade || "media", area: r.area || areaPadrao(),
             projeto: r.projeto || "", projetos: r.projeto ? [r.projeto] : [], tags: [...new Set([...(r.tags || []), "recorrente:" + r.id])], chaves: ["recorrente:" + r.id + "@" + alvo],
             pai: null, relacionadas: [], prazo: alvo, proximo_passo: r.proximo_passo || "", contexto: r.contexto || "", resumo: "",
             links: r.links || [], conversas: [], recorrente: r.id,
-            historico: [{ em: now, texto: "Ocorrência de " + ddmm(alvo) + " da recorrente (" + recRegraTxt(r) + ")" + (n > 1 ? "; " + (n - 1) + " anterior(es) passaram sem card" : ""), por: "pagina" }],
+            historico: [{ em: now, texto: t("hist.recOcorr", { d: fmtData(alvo), regra: recRegraTxt(r) }) + (n > 1 ? (n === 2 ? t("hist.recPuladas1") : t("hist.recPuladasN", { n: n - 1 })) : ""), por: "pagina" }],
             fonte: { tipo: "recorrente", ref: r.id }, auto: true, criado_em: now, atualizado_em: now, concluido_em: null,
           };
           await ref.set(body);
@@ -316,9 +601,9 @@ async function materializar() {
 function saveRec(form) {
   if (!db || !canWrite) return;
   const f = k => form.querySelector("[name=" + k + "]");
-  const titulo = f("titulo").value.trim(); if (!titulo) { toast("Dê um título à recorrente"); return; }
-  const tipo = f("tipo").value, dias = [...form.querySelectorAll("[name=dia]:checked")].map(x => +x.value);
-  if (tipo === "semanal" && !dias.length) { toast("Escolha pelo menos um dia da semana"); return; }
+  const titulo = f("titulo").value.trim(); if (!titulo) { toast(t("toast.recTitulo")); return; }
+  const tipo = f("tipo").value, dias = [...form.querySelectorAll("[name=dia]:checked")].map(x => +x.value).sort((a, b) => a - b);
+  if (tipo === "semanal" && !dias.length) { toast(t("toast.recDia")); return; }
   const projeto = f("projeto").value.trim(), now = nowIso();
   const editing = ui.recEdit && ui.recEdit !== "novo" ? recs.find(x => x.id === ui.recEdit) : null;
   const regra = { tipo, a_cada: Math.max(1, +f("a_cada").value || 1), inicio: f("inicio").value || todayStr() };
@@ -334,11 +619,11 @@ function saveRec(form) {
     Object.assign(editing, body);
     queue("rec:" + editing.id, () => db.doc("recorrentes/" + editing.id).update(body).then(() => true));
   } else {
-    let base = slug(titulo).replace(/:/g, "-").slice(0, 40).replace(/-+$/, "") || "recorrente", id = base, k = 2;
+    const base = idSlug(titulo); let id = base, k = 2;
     while (recs.some(x => x.id === id)) id = base + "-" + k++;
-    Object.assign(body, { ativo: true, area: ESCOPO.areas[0].id, contexto: "", ultima: addDays(regra.inicio, -1), criado_em: now });
+    Object.assign(body, { ativo: true, area: areaPadrao(), contexto: "", ultima: addDays(regra.inicio, -1), criado_em: now });
     recs.push(Object.assign({ id }, body));
-    queue("rec:" + id, async () => { const ref = db.doc("recorrentes/" + id); if ((await ref.get()).exists) throw { message: "já existe uma recorrente com o id " + id }; await ref.set(body); return true; });
+    queue("rec:" + id, async () => { const ref = db.doc("recorrentes/" + id); if ((await ref.get()).exists) throw { message: t("err.recConflito", { id }) }; await ref.set(body); return true; });
   }
   ui.recEdit = null; render(); setTimeout(materializar, 300);
 }
@@ -347,12 +632,12 @@ function wouldCycle(child, parent) { let p = parent, n = 0; while (p && n++ < 50
 // ===== Filtros =====
 function filtered() {
   const q = slug(ui.q).replace(/-/g, " ");
-  return tasks.filter(t =>
-    (!ui.projeto || projetosOf(t).includes(ui.projeto)) &&
-    (!ui.tag || (t.tags || []).includes(ui.tag)) &&
-    (!ui.area || t.area === ui.area) &&
-    (ui.showRec || !t.recorrente) &&
-    (!q || slug([t.titulo, t.proximo_passo, t.contexto, t.resumo, projetosOf(t).join(" "), (t.tags || []).join(" "), (t.chaves || []).join(" ")].join(" ")).replace(/-/g, " ").includes(q)));
+  return tasks.filter(x =>
+    (!ui.projeto || projetosOf(x).includes(ui.projeto)) &&
+    (!ui.tag || (x.tags || []).includes(ui.tag)) &&
+    (!ui.area || x.area === ui.area) &&
+    (ui.showRec || !x.recorrente) &&
+    (!q || slug([x.titulo, x.proximo_passo, x.contexto, x.resumo, projetosOf(x).join(" "), (x.tags || []).join(" "), (x.chaves || []).join(" ")].join(" ")).replace(/-/g, " ").includes(q)));
 }
 function sortTasks(arr) {
   return arr.slice().sort((a, b) => {
@@ -364,23 +649,41 @@ function sortTasks(arr) {
     return (b.atualizado_em || "").localeCompare(a.atualizado_em || "");
   });
 }
+const cmpNome = (a, b) => a.localeCompare(b, LOCALE);
 
 // ===== Render =====
+// Textos fixos da marcação (rótulos, placeholders, aria-label, title): vêm do dicionário porque as preferências chegam depois.
+function renderStatic() {
+  const vars = { col: stNome("entrada") };
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n, vars); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh, vars); });
+  document.querySelectorAll("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria, vars)); });
+  document.querySelectorAll("[data-i18n-title]").forEach(el => { el.title = t(el.dataset.i18nTitle, vars); });
+  paintSync(); paintBanner();
+}
+function renderHint() {
+  const code = s => "<code>" + esc(s) + "</code>";
+  const areas = ESCOPO.areas.length > 1 ? t("hint.areas", { areas: ESCOPO.areas.map(a => code("@" + a.id)).join(", ") }) : "";
+  $("#quickHint").innerHTML = t("hint", {
+    proj: code("#" + (ESCOPO.exemploProjeto || t("hint.projEx"))), tag: code("+" + t("hint.tagEx")), pessoa: code("@" + t("hint.pessoaEx")), areas,
+    prio: code("!" + t("pr.alta")), prazo: code("^" + (MES_PRIMEIRO ? ["10", "15"] : ["15", "10"]).join(SEP_DATA)), iso: code("^" + t("hint.isoEx")),
+  });
+}
 function renderControls() {
-  $("#scopeName").textContent = ESCOPO.nome || "";
+  renderStatic();
+  $("#scopeName").textContent = ESCOPO.nome || t("tarefas");
   $("#scopeSub").textContent = ESCOPO.sub || "";
-  $("#quickHint").innerHTML = 'Atalhos: <code>#' + esc(ESCOPO.exemploProjeto || "Projeto") + '</code> projeto (pode repetir), <code>+tema</code> tag, <code>@pessoa</code> pessoa' +
-    (ESCOPO.areas.length > 1 ? ' (ou ' + ESCOPO.areas.map(a => '<code>@' + esc(a.id) + '</code>').join(", ") + ' para a área)' : '') + ', <code>!alta</code> prioridade, <code>^15/10</code> prazo.';
-  const projetos = [...new Set(tasks.flatMap(projetosOf))].sort((a, b) => a.localeCompare(b, "pt"));
+  renderHint();
+  const projetos = [...new Set(tasks.flatMap(projetosOf))].sort(cmpNome);
   if (ui.projeto && !projetos.includes(ui.projeto)) ui.projeto = "";
-  $("#fProjeto").innerHTML = '<option value="">Todos os projetos</option>' + projetos.map(p => `<option ${p === ui.projeto ? "selected" : ""}>${esc(p)}</option>`).join("");
-  const tags = [...new Set(tasks.flatMap(t => (t.tags || []).filter(x => !x.startsWith("projeto:"))))].sort();
+  $("#fProjeto").innerHTML = `<option value="">${esc(t("f.todosProj"))}</option>` + projetos.map(p => `<option ${p === ui.projeto ? "selected" : ""}>${esc(p)}</option>`).join("");
+  const tags = [...new Set(tasks.flatMap(x => (x.tags || []).filter(g => !g.startsWith("projeto:"))))].sort();
   if (ui.tag && !tags.includes(ui.tag)) ui.tag = "";
-  $("#fTag").innerHTML = '<option value="">Todas as tags</option>' + tags.map(g => `<option value="${esc(g)}" ${g === ui.tag ? "selected" : ""}>${esc(g)}</option>`).join("");
+  $("#fTag").innerHTML = `<option value="">${esc(t("f.todasTags"))}</option>` + tags.map(g => `<option value="${esc(g)}" ${g === ui.tag ? "selected" : ""}>${esc(g)}</option>`).join("");
   $("#fArea").hidden = ESCOPO.areas.length < 2;
-  $("#fArea").innerHTML = [{ id: "", nome: "Tudo" }, ...ESCOPO.areas].map(a => `<button type="button" data-a="${esc(a.id)}" aria-pressed="${ui.area === a.id}">${esc(a.nome)}</button>`).join("");
+  $("#fArea").innerHTML = [{ id: "", nome: t("f.tudo") }, ...ESCOPO.areas].map(a => `<button type="button" data-a="${esc(a.id)}" aria-pressed="${ui.area === a.id}">${esc(a.nome || a.id)}</button>`).join("");
   $("#fView").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(ui.view === b.dataset.v)));
-  $("#fRec").setAttribute("aria-pressed", String(!!ui.showRec)); $("#fRec").hidden = ui.view === "recorrentes" || !tasks.some(t => t.recorrente);
+  $("#fRec").setAttribute("aria-pressed", String(!!ui.showRec)); $("#fRec").hidden = ui.view === "recorrentes" || !tasks.some(x => x.recorrente);
   $("#quickInput").disabled = $("#quickBtn").disabled = !db || !canWrite;
 }
 function renderToday() {
@@ -390,98 +693,105 @@ function renderToday() {
   const plano = (bd.plano || []).map((p, i) => `<li class="${p.feito ? "done" : ""}"><input type="checkbox" id="plano-${i}" data-plano="${i}" ${p.feito ? "checked" : ""} ${!db || !canWrite ? "disabled" : ""}>
     <span>${p.tarefa && byId(p.tarefa) ? `<span class="linkt" data-open="${esc(p.tarefa)}">${esc(p.texto)}</span>` : esc(p.texto)}</span></li>`).join("");
   const reun = (bd.reunioes || []).map(r => `<li><span class="hora">${esc(r.hora || "")}</span><span>${esc(r.titulo)}${(r.tarefas || []).filter(byId).map(id => ` · <span class="linkt" data-open="${esc(id)}">${esc(byId(id).titulo)}</span>`).join("")}</span></li>`).join("");
-  el.innerHTML = `<div><h2>Plano de hoje · ${ddmm(todayStr())}</h2><ul>${plano || '<li><span class="hint">Sem plano gravado pelo bom dia.</span></li>'}</ul></div>
-    <div><h2>Reuniões</h2><ul>${reun || '<li><span class="hint">Nenhuma reunião ligada.</span></li>'}</ul></div>`;
+  el.innerHTML = `<div><h2>${esc(t("today.plano", { d: fmtData(hojeKey || todayStr()) }))}</h2><ul>${plano || `<li><span class="hint">${esc(t("today.semPlano"))}</span></li>`}</ul></div>
+    <div><h2>${esc(t("today.reunioes"))}</h2><ul>${reun || `<li><span class="hint">${esc(t("today.semReun"))}</span></li>`}</ul></div>`;
 }
 function renderSummary() {
-  const open = tasks.filter(t => t.status !== "feito");
-  const late = open.filter(t => { const p = prazoInfo(t); return p && p.cls === "late"; }).length;
-  const zombie = open.filter(t => daysSince(t.atualizado_em || t.criado_em) >= (ESCOPO.zumbi_dias || 60)).length;
-  const doneWeek = tasks.filter(t => t.status === "feito" && t.resolucao !== "descartada" && daysSince(t.concluido_em) < 7).length;
-  const n = s => open.filter(t => t.status === s).length;
+  const open = tasks.filter(x => x.status !== "feito");
+  const late = open.filter(x => { const p = prazoInfo(x); return p && p.cls === "late"; }).length;
+  const zombie = open.filter(x => daysSince(x.atualizado_em || x.criado_em) >= (ESCOPO.zumbi_dias || 60)).length;
+  const doneWeek = tasks.filter(x => x.status === "feito" && x.resolucao !== "descartada" && daysSince(x.concluido_em) < 7).length;
+  const n = s => open.filter(x => x.status === s).length;
   $("#summary").innerHTML = [
-    ["Abertas", open.length, ""], ["Na entrada", n("entrada"), ""], ["Fazendo", n("fazendo"), ""], ["Esperando", n("esperando"), ""],
-    ["Atrasadas", late, late ? "bad" : ""], ["Paradas " + (ESCOPO.zumbi_dias || 60) + "+ dias", zombie, zombie ? "warn" : ""], ["Feitas em 7 dias", doneWeek, ""],
-  ].map(([l, v, c]) => `<span class="stat ${c}"><b>${v}</b>${l}</span>`).join("");
+    [t("sum.abertas"), open.length, ""], [t("sum.entrada"), n("entrada"), ""], [t("sum.fazendo"), n("fazendo"), ""], [t("sum.esperando"), n("esperando"), ""],
+    [t("sum.atrasadas"), late, late ? "bad" : ""], [t("sum.paradas", { n: ESCOPO.zumbi_dias || 60 }), zombie, zombie ? "warn" : ""], [t("sum.feitas7"), doneWeek, ""],
+  ].map(([l, v, c]) => `<span class="stat ${c}"><b>${v}</b>${esc(l)}</span>`).join("");
 }
-function tagChips(t, max) {
-  const tags = (t.tags || []).filter(x => !x.startsWith("projeto:"));
+function tagChips(tk, max) {
+  const tags = (tk.tags || []).filter(x => !x.startsWith("projeto:"));
   return tags.slice(0, max).map(g => `<span class="tagchip ${g.startsWith("pessoa:") ? "pessoa" : ""} ${g === ui.tag ? "on" : ""}" data-tag="${esc(g)}" title="${esc(g)}">${esc(tagLabel(g))}</span>`).join("") +
     (tags.length > max ? `<span class="date">+${tags.length - max}</span>` : "");
 }
-function cardHtml(t) {
-  const p = prazoInfo(t), s = staleInfo(t), c = mainConv(t), nc = (t.conversas || []).length;
-  const pai = t.pai && byId(t.pai), filhos = tasks.filter(x => x.pai === t.id), abertos = filhos.filter(x => x.status !== "feito").length;
-  return `<div role="button" tabindex="0" class="card ${t.status === "feito" ? "done" : ""}" data-id="${esc(t.id)}" draggable="${canWrite && !!db}">
+function cardConvLabel(c, nc) {
+  const n = nc > 1 ? " · " + nc : "";
+  if (isCli(c)) return t("conv.retomar") + n;
+  return (c.arquivada ? t("conv.arquivada") : t("conv.abrir")) + n + " ↗";
+}
+function cardHtml(tk) {
+  const p = prazoInfo(tk), s = staleInfo(tk), c = mainConv(tk), nc = (tk.conversas || []).length;
+  const pai = tk.pai && byId(tk.pai), filhos = tasks.filter(x => x.pai === tk.id), abertos = filhos.filter(x => x.status !== "feito").length;
+  const nrel = (tk.relacionadas || []).length;
+  return `<div role="button" tabindex="0" class="card ${tk.status === "feito" ? "done" : ""}" data-id="${esc(tk.id)}" draggable="${canWrite && !!db}">
     ${pai ? `<span class="parent">↳ ${esc(pai.titulo)}</span>` : ""}
-    <span class="t">${esc(t.titulo)}</span>
-    ${t.proximo_passo ? `<span class="next">→ ${esc(t.proximo_passo)}</span>` : ""}
+    <span class="t">${esc(tk.titulo)}</span>
+    ${tk.proximo_passo ? `<span class="next">→ ${esc(tk.proximo_passo)}</span>` : ""}
     <span class="meta">
-      ${t.prioridade === "alta" ? '<span class="prio alta">alta</span>' : ""}
-      ${projetosOf(t).map(p => `<span class="chip area">${esc(p)}</span>`).join("")}
-      ${tagChips(t, 3)}
-      ${filhos.length ? `<span class="chip">${abertos}/${filhos.length} subtarefas</span>` : ""}
-      ${(t.relacionadas || []).length ? `<span class="chip">${t.relacionadas.length} ligada${t.relacionadas.length > 1 ? "s" : ""}</span>` : ""}
-      ${p ? `<span class="chip ${p.cls}">${p.txt}</span>` : ""}
-      ${s ? `<span class="chip ${s.cls}">${s.txt}</span>` : ""}
-      ${t.recorrente ? '<span class="chip rec" title="Gerada por uma tarefa recorrente">↻ recorrente</span>' : ""}
-      ${t.auto && t.status === "entrada" ? '<span class="chip auto">automático</span>' : ""}
-      ${t.resolucao === "descartada" ? '<span class="chip desc">descartada</span>' : ""}
-      ${t.status === "feito" && t.concluido_em ? `<span class="date">${t.resolucao === "descartada" ? "fechada" : "feita"} ${ddmm(t.concluido_em.slice(0, 10))}</span>` : ""}
+      ${tk.prioridade === "alta" ? `<span class="prio alta">${esc(prNome("alta"))}</span>` : ""}
+      ${projetosOf(tk).map(x => `<span class="chip area">${esc(x)}</span>`).join("")}
+      ${tagChips(tk, 3)}
+      ${filhos.length ? `<span class="chip">${esc(t("card.subtarefas", { a: abertos, n: filhos.length }))}</span>` : ""}
+      ${nrel ? `<span class="chip">${esc(nrel > 1 ? t("card.ligadaN", { n: nrel }) : t("card.ligada1"))}</span>` : ""}
+      ${p ? `<span class="chip ${p.cls}">${esc(p.txt)}</span>` : ""}
+      ${s ? `<span class="chip ${s.cls}">${esc(s.txt)}</span>` : ""}
+      ${tk.recorrente ? `<span class="chip rec" title="${esc(t("card.recTitle"))}">${esc(t("card.rec"))}</span>` : ""}
+      ${tk.auto && tk.status === "entrada" ? `<span class="chip auto">${esc(t("card.auto"))}</span>` : ""}
+      ${tk.resolucao === "descartada" ? `<span class="chip desc">${esc(t("card.descartada"))}</span>` : ""}
+      ${tk.status === "feito" && tk.concluido_em ? `<span class="date">${esc(t(tk.resolucao === "descartada" ? "card.fechada" : "card.feita", { d: fmtData(tk.concluido_em) }))}</span>` : ""}
     </span>
-    ${c ? convBtn(c, (c.arquivada ? "Conversa arquivada" : "Abrir conversa") + (nc > 1 ? " · " + nc : "") + " ↗") : ""}
+    ${c ? convBtn(c, cardConvLabel(c, nc)) : ""}
   </div>`;
 }
 function renderBoard(list) {
-  const cols = STATUS.map(s => {
-    let items = sortTasks(list.filter(t => t.status === s.id));
+  const cols = STATUS.map(sid => {
+    let items = sortTasks(list.filter(x => x.status === sid));
     const total = items.length;
-    if (s.id === "feito") items = items.slice(0, 15);
-    return `<section class="col" data-status="${s.id}" aria-label="${s.nome}">
-      <div class="col-head"><h2><span class="sdot s-${s.id}"></span>${s.nome}</h2><span class="n">${total}</span></div>
-      ${items.map(cardHtml).join("") || `<div class="col-empty">${s.id === "entrada" ? "Nada novo para triar." : "Vazio."}</div>`}
-      ${s.id === "feito" && total > 15 ? `<div class="col-empty">Mostrando as 15 mais recentes. A Lista mostra todas.</div>` : ""}
+    if (sid === "feito") items = items.slice(0, 15);
+    return `<section class="col" data-status="${sid}" aria-label="${esc(stNome(sid))}">
+      <div class="col-head"><h2><span class="sdot s-${sid}"></span>${esc(stNome(sid))}</h2><span class="n">${total}</span></div>
+      ${items.map(cardHtml).join("") || `<div class="col-empty">${esc(sid === "entrada" ? t("col.vazioEntrada") : t("col.vazio"))}</div>`}
+      ${sid === "feito" && total > 15 ? `<div class="col-empty">${esc(t("col.mostrando15"))}</div>` : ""}
     </section>`;
   }).join("");
   return `<div class="board-scroll"><div class="board">${cols}</div></div>`;
 }
 function renderList(list) {
-  const groups = {};
-  sortTasks(list).forEach(t => { const ps = projetosOf(t); (ps.length ? ps : ["Sem projeto"]).forEach(k => (groups[k] = groups[k] || []).push(t)); });
-  const keys = Object.keys(groups).sort((a, b) => a === "Sem projeto" ? 1 : b === "Sem projeto" ? -1 : a.localeCompare(b, "pt"));
-  const ord = Object.fromEntries(STATUS.map((s, i) => [s.id, i]));
+  const groups = {}, SEM = "\u0000sem-projeto";
+  sortTasks(list).forEach(x => { const ps = projetosOf(x); (ps.length ? ps : [SEM]).forEach(k => (groups[k] = groups[k] || []).push(x)); });
+  const keys = Object.keys(groups).sort((a, b) => a === SEM ? 1 : b === SEM ? -1 : cmpNome(a, b));
+  const ord = Object.fromEntries(STATUS.map((s, i) => [s, i]));
   const rows = keys.map(k => {
     const items = groups[k].sort((a, b) => (a.status === "feito") - (b.status === "feito") || ord[b.status] - ord[a.status]);
-    return `<tr class="group"><td colspan="5">${esc(k)} <span class="date">· ${items.filter(t => t.status !== "feito").length} abertas</span></td></tr>` +
-      items.map(t => {
-        const p = prazoInfo(t), s = staleInfo(t), c = mainConv(t);
-        return `<tr class="row" data-id="${esc(t.id)}" tabindex="0">
-          <td><span class="status"><span class="sdot s-${stId(t.status)}"></span>${t.resolucao === "descartada" ? "Descartada" : STATUS_NOME[stId(t.status)]}</span></td>
-          <td><div class="t">${esc(t.titulo)}</div>${t.proximo_passo ? `<div class="hint">→ ${esc(t.proximo_passo)}</div>` : ""}<div class="meta" style="margin-top:4px">${tagChips(t, 5)}</div>${c ? `<div style="margin-top:6px">${convBtn(c)}</div>` : ""}</td>
-          <td><span class="prio ${esc(t.prioridade)}">${t.prioridade === "media" ? "média" : esc(t.prioridade || "")}</span></td>
-          <td>${p ? `<span class="chip ${p.cls}">${p.txt}</span>` : (t.prazo ? `<span class="date">${ddmm(t.prazo)}</span>` : "")}</td>
-          <td><span class="date">${ddmm((t.atualizado_em || "").slice(0, 10))}</span>${s ? ` <span class="chip ${s.cls}">${s.txt}</span>` : ""}</td>
+    return `<tr class="group"><td colspan="5">${esc(k === SEM ? t("list.semProjeto") : k)} <span class="date">· ${esc(t("list.abertas", { n: items.filter(x => x.status !== "feito").length }))}</span></td></tr>` +
+      items.map(tk => {
+        const p = prazoInfo(tk), s = staleInfo(tk), c = mainConv(tk);
+        return `<tr class="row" data-id="${esc(tk.id)}" tabindex="0">
+          <td><span class="status"><span class="sdot s-${stId(tk.status)}"></span>${esc(tk.resolucao === "descartada" ? t("st.descartada") : stNome(stId(tk.status)))}</span></td>
+          <td><div class="t">${esc(tk.titulo)}</div>${tk.proximo_passo ? `<div class="hint">→ ${esc(tk.proximo_passo)}</div>` : ""}<div class="meta" style="margin-top:4px">${tagChips(tk, 5)}</div>${c ? `<div style="margin-top:6px">${convBtn(c)}</div>` : ""}</td>
+          <td><span class="prio ${esc(tk.prioridade)}">${esc(prNome(tk.prioridade))}</span></td>
+          <td>${p ? `<span class="chip ${p.cls}">${esc(p.txt)}</span>` : (tk.prazo ? `<span class="date">${esc(fmtData(tk.prazo))}</span>` : "")}</td>
+          <td><span class="date">${esc(fmtData(tk.atualizado_em))}</span>${s ? ` <span class="chip ${s.cls}">${esc(s.txt)}</span>` : ""}</td>
         </tr>`;
       }).join("");
   }).join("");
-  return `<div class="list-scroll"><table><thead><tr><th>Status</th><th>Tarefa</th><th>Prioridade</th><th>Prazo</th><th>Atualizada</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="list-scroll"><table><thead><tr><th>${esc(t("th.status"))}</th><th>${esc(t("th.tarefa"))}</th><th>${esc(t("th.prio"))}</th><th>${esc(t("th.prazo"))}</th><th>${esc(t("th.atualizada"))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function recFormHtml(r) {
   const g = (r && r.regra) || { tipo: "semanal", dias: [isoDow(todayStr())], a_cada: 1, inicio: todayStr() };
-  const projetos = [...new Set(tasks.map(x => x.projeto).filter(Boolean))].sort();
+  const projetos = [...new Set(tasks.map(x => x.projeto).filter(Boolean))].sort(cmpNome);
+  const ordem = [0, 1, 2, 3, 4, 5, 6].map(i => ((SEMANA - 1 + i) % 7) + 1); // dias na ordem da semana do locale; valor gravado segue ISO 1..7
   return `<form class="rec-form" id="recForm" autocomplete="off">
-    <h2>${r ? "Editar recorrente" : "Nova recorrente"}</h2>
-    <label class="lbl wide">Título<input class="field" name="titulo" value="${esc(r ? r.titulo : "")}" placeholder="Ex.: Fechar o financeiro do mês" required></label>
-    <label class="lbl">Repete<select class="field" name="tipo">${[["diaria", "Diária"], ["semanal", "Semanal"], ["mensal", "Mensal"]].map(([v, l]) => `<option value="${v}" ${g.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-    <label class="lbl">A cada<input class="field" name="a_cada" type="number" min="1" value="${esc(g.a_cada || 1)}"></label>
-    <div class="lbl full" data-only="semanal">Dias<div class="dows">${[1, 2, 3, 4, 5, 6, 7].map(d => `<label><input type="checkbox" name="dia" value="${d}" ${(g.dias || []).includes(d) ? "checked" : ""}>${DOW[d]}</label>`).join("")}</div></div>
-    <label class="lbl" data-only="mensal">Dia do mês<input class="field" name="diames" type="number" min="-1" max="31" value="${esc(g.dia || +String(g.inicio || todayStr()).slice(8))}" title="-1 = último dia do mês"></label>
-    <label class="lbl">Começa em<input class="field" name="inicio" type="date" value="${esc(g.inicio || todayStr())}"></label>
-    <label class="lbl">Aparece antes (dias)<input class="field" name="antecedencia" type="number" min="0" max="30" value="${esc(r ? (r.antecedencia_dias || 0) : 0)}"></label>
-    <label class="lbl">Projeto<input class="field" name="projeto" list="dlRecProj" value="${esc(r ? r.projeto || "" : "")}"><datalist id="dlRecProj">${projetos.map(p => `<option value="${esc(p)}">`).join("")}</datalist></label>
-    <label class="lbl">Prioridade<select class="field" name="prioridade">${["alta", "media", "baixa"].map(p => `<option value="${p}" ${(r ? r.prioridade : "media") === p ? "selected" : ""}>${p === "media" ? "média" : p}</option>`).join("")}</select></label>
-    <label class="lbl full">Próximo passo (vai em cada card)<input class="field" name="proximo" value="${esc(r ? r.proximo_passo || "" : "")}" placeholder="O que fazer quando ela aparecer"></label>
-    <div class="full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="recCancel">Cancelar</button><button class="btn primary" type="submit">Salvar</button></div>
+    <h2>${esc(r ? t("rf.editar") : t("rf.nova"))}</h2>
+    <label class="lbl wide">${esc(t("rf.titulo"))}<input class="field" name="titulo" value="${esc(r ? r.titulo : "")}" placeholder="${esc(t("rf.tituloPh"))}" required></label>
+    <label class="lbl">${esc(t("rf.repete"))}<select class="field" name="tipo">${[["diaria", "rf.diaria"], ["semanal", "rf.semanal"], ["mensal", "rf.mensal"]].map(([v, l]) => `<option value="${v}" ${g.tipo === v ? "selected" : ""}>${esc(t(l))}</option>`).join("")}</select></label>
+    <label class="lbl">${esc(t("rf.aCada"))}<input class="field" name="a_cada" type="number" min="1" value="${esc(g.a_cada || 1)}"></label>
+    <div class="lbl full" data-only="semanal">${esc(t("rf.dias"))}<div class="dows">${ordem.map(d => `<label><input type="checkbox" name="dia" value="${d}" ${(g.dias || []).includes(d) ? "checked" : ""}>${esc(dowNome(d))}</label>`).join("")}</div></div>
+    <label class="lbl" data-only="mensal">${esc(t("rf.diaMes"))}<input class="field" name="diames" type="number" min="-1" max="31" value="${esc(g.dia || +String(g.inicio || todayStr()).slice(8))}" title="${esc(t("rf.diaMesTitle"))}"></label>
+    <label class="lbl">${esc(t("rf.comeca"))}<input class="field" name="inicio" type="date" value="${esc(g.inicio || todayStr())}"></label>
+    <label class="lbl">${esc(t("rf.antes"))}<input class="field" name="antecedencia" type="number" min="0" max="30" value="${esc(r ? (r.antecedencia_dias || 0) : 0)}"></label>
+    <label class="lbl">${esc(t("rf.projeto"))}<input class="field" name="projeto" list="dlRecProj" value="${esc(r ? r.projeto || "" : "")}"><datalist id="dlRecProj">${projetos.map(p => `<option value="${esc(p)}">`).join("")}</datalist></label>
+    <label class="lbl">${esc(t("rf.prio"))}<select class="field" name="prioridade">${["alta", "media", "baixa"].map(p => `<option value="${p}" ${(r ? r.prioridade : "media") === p ? "selected" : ""}>${esc(prNome(p))}</option>`).join("")}</select></label>
+    <label class="lbl full">${esc(t("rf.proximo"))}<input class="field" name="proximo" value="${esc(r ? r.proximo_passo || "" : "")}" placeholder="${esc(t("rf.proximoPh"))}"></label>
+    <div class="full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="recCancel">${esc(t("rf.cancelar"))}</button><button class="btn primary" type="submit">${esc(t("rf.salvar"))}</button></div>
   </form>`;
 }
 function syncRecForm() {
@@ -491,109 +801,114 @@ function syncRecForm() {
 }
 function renderRecorrentes() {
   const ro = !db || !canWrite;
-  if (!recLoaded) return `<div class="empty"><h2>Carregando as recorrentes…</h2></div>`;
+  if (!recLoaded) return `<div class="empty"><h2>${esc(t("recs.carregando"))}</h2></div>`;
   const editing = ui.recEdit === "novo" ? null : recs.find(r => r.id === ui.recEdit);
-  const rows = recs.slice().sort((a, b) => (a.ativo === false) - (b.ativo === false) || a.titulo.localeCompare(b.titulo, "pt")).map(r => {
+  const rows = recs.slice().sort((a, b) => (a.ativo === false) - (b.ativo === false) || cmpNome(a.titulo, b.titulo)).map(r => {
     const prox = r.ativo === false ? null : recNext(r, r.ultima ? addDays(r.ultima, 1) : recInicio(r)), ab = recOpen(r.id);
     return `<div class="rec-row ${r.ativo === false ? "off" : ""}">
-      <span class="t">${esc(r.titulo)}<br><span class="r">${esc(recRegraTxt(r))}${r.projeto ? " · " + esc(r.projeto) : ""}${+r.antecedencia_dias ? " · aparece " + r.antecedencia_dias + "d antes" : ""}</span></span>
-      <span class="r">${r.ativo === false ? "pausada" : prox ? "próxima " + ddmm(prox) : "sem próxima"}</span>
-      ${ab ? `<span class="linkt" data-open="${esc(ab.id)}" style="font-size:12.5px">card aberto (${esc(STATUS_NOME[ab.status])}) ↗</span>` : ""}
-      ${ro ? "" : `<button type="button" class="mini" data-recedit="${esc(r.id)}">editar</button><button type="button" class="mini" data-recpausa="${esc(r.id)}">${r.ativo === false ? "retomar" : "pausar"}</button><button type="button" class="mini" data-recdel="${esc(r.id)}">apagar</button>`}
+      <span class="t">${esc(r.titulo)}<br><span class="r">${esc(recRegraTxt(r))}${r.projeto ? " · " + esc(r.projeto) : ""}${+r.antecedencia_dias ? " · " + esc(t("recs.aparece", { n: r.antecedencia_dias })) : ""}</span></span>
+      <span class="r">${esc(r.ativo === false ? t("recs.pausada") : prox ? t("recs.proxima", { d: fmtData(prox) }) : t("recs.semProxima"))}</span>
+      ${ab ? `<span class="linkt" data-open="${esc(ab.id)}" style="font-size:12.5px">${esc(t("recs.cardAberto", { s: stNome(ab.status) }))}</span>` : ""}
+      ${ro ? "" : `<button type="button" class="mini" data-recedit="${esc(r.id)}">${esc(t("recs.editar"))}</button><button type="button" class="mini" data-recpausa="${esc(r.id)}">${esc(r.ativo === false ? t("recs.retomar") : t("recs.pausar"))}</button><button type="button" class="mini" data-recdel="${esc(r.id)}">${esc(t("recs.apagar"))}</button>`}
     </div>`;
   }).join("");
+  const colAF = stNome("a_fazer");
   return `<div class="recs">
-    ${ui.recEdit && !ro ? recFormHtml(editing) : ro ? "" : `<div><button type="button" class="btn primary" id="recNew">Nova recorrente</button></div>`}
-    ${rows || '<div class="empty"><h2>Nenhuma tarefa recorrente</h2>Crie uma aqui (ex.: "Fechar o financeiro", todo mês no dia 5). Quando chega o dia, ela vira um card em A fazer no quadro.</div>'}
-    <p class="hint">Cada ocorrência vira um card em A fazer com prazo no dia, e anda pelo quadro como qualquer tarefa. Enquanto o card anterior estiver aberto, não nasce outro.</p>
+    ${ui.recEdit && !ro ? recFormHtml(editing) : ro ? "" : `<div><button type="button" class="btn primary" id="recNew">${esc(t("rf.nova"))}</button></div>`}
+    ${rows || `<div class="empty"><h2>${esc(t("recs.vazioT"))}</h2>${esc(t("recs.vazio", { col: colAF }))}</div>`}
+    <p class="hint">${esc(t("recs.nota", { col: colAF }))}</p>
   </div>`;
 }
 function renderMain() {
   const main = $("#main");
   if (ui.view === "recorrentes") { main.innerHTML = renderRecorrentes(); syncRecForm(); return; }
-  if (!loaded) { main.innerHTML = `<div class="empty"><h2>Carregando as tarefas…</h2>As tarefas ficam guardadas no banco deste artefato.</div>`; return; }
-  if (!tasks.length) { main.innerHTML = `<div class="empty"><h2>Nenhuma tarefa ainda</h2>Escreva a primeira no campo acima e aperte Enter, ou peça ao Claude para registrar o que você está fazendo.</div>`; return; }
+  if (!loaded) { main.innerHTML = `<div class="empty"><h2>${esc(t("main.carregandoT"))}</h2>${esc(t("main.carregando"))}</div>`; return; }
+  if (!tasks.length) { main.innerHTML = `<div class="empty"><h2>${esc(t("main.vazioT"))}</h2>${esc(t("main.vazio"))}</div>`; return; }
   const list = filtered();
-  if (!list.length) { main.innerHTML = `<div class="empty"><h2>Nada com esses filtros</h2>Limpe a busca ou troque o projeto e a tag.</div>`; return; }
+  if (!list.length) { main.innerHTML = `<div class="empty"><h2>${esc(t("main.filtroT"))}</h2>${esc(t("main.filtro"))}</div>`; return; }
   main.innerHTML = ui.view === "lista" ? renderList(list) : renderBoard(list);
 }
-function relRow(kind, id, removable) {
-  const t = byId(id); if (!t) return "";
-  return `<div class="rel-row"><span class="k">${kind}</span><button type="button" class="go" data-open="${esc(id)}">${esc(t.titulo)} <span class="date">· ${t.resolucao === "descartada" ? "Descartada" : STATUS_NOME[t.status]}</span></button>${removable ? `<button type="button" class="mini" data-unrel="${esc(id)}">remover</button>` : ""}</div>`;
+function relRow(kindKey, id, removable) {
+  const x = byId(id); if (!x) return "";
+  return `<div class="rel-row"><span class="k">${esc(t(kindKey))}</span><button type="button" class="go" data-open="${esc(id)}">${esc(x.titulo)} <span class="date">· ${esc(x.resolucao === "descartada" ? t("st.descartada") : stNome(x.status))}</span></button>${removable ? `<button type="button" class="mini" data-unrel="${esc(id)}">${esc(t("remover"))}</button>` : ""}</div>`;
+}
+function convRow(c, i, ro) {
+  const cli = isCli(c);
+  return `<div class="conv-row">
+    <span class="ct">${esc(c.titulo || c.id)}${c.arquivada ? ` <span class="chip">${esc(t("conv.chipArq"))}</span>` : ""}<small>${esc(cli ? resumeCmd(c) : convLink(c))}</small></span>
+    ${cli ? convBtn(c, t("conv.copiarCmd")) : convBtn(c, t("conv.abrirCurto") + " ↗") + `<button type="button" class="mini" data-copyconv="${i}">${esc(t("conv.copiarLink"))}</button>`}
+    ${ro ? "" : `<button type="button" class="mini" data-rmconv="${i}">${esc(t("remover"))}</button>`}
+  </div>`;
 }
 function renderDrawer(force) {
   const host = $("#drawerHost");
   const ae = document.activeElement;
   if (!force && ui.openId && ae && host.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return;
-  const t = byId(ui.openId);
-  if (!t) { host.innerHTML = ""; return; }
+  const tk = byId(ui.openId);
+  if (!tk) { host.innerHTML = ""; return; }
   const ro = !canWrite || !db ? "disabled" : "";
   const projetos = [...new Set(tasks.flatMap(projetosOf))].sort();
-  const filhos = tasks.filter(x => x.pai === t.id);
-  const outras = sortTasks(tasks.filter(x => x.id !== t.id && x.status !== "feito"));
-  const statusVal = t.status === "feito" && t.resolucao === "descartada" ? "descartada" : t.status;
+  const filhos = tasks.filter(x => x.pai === tk.id);
+  const outras = sortTasks(tasks.filter(x => x.id !== tk.id && x.status !== "feito"));
+  const statusVal = tk.status === "feito" && tk.resolucao === "descartada" ? "descartada" : tk.status;
+  const L = k => esc(t(k));
   host.innerHTML = `<div class="scrim" data-close="1"></div>
-  <aside class="drawer" role="dialog" aria-label="Detalhe da tarefa">
+  <aside class="drawer" role="dialog" aria-label="${L("d.aria")}">
     <div class="d-head">
-      <textarea id="dTitulo" rows="2" ${ro} aria-label="Título">${esc(t.titulo)}</textarea>
-      <button class="icon-btn" type="button" data-close="1" aria-label="Fechar">×</button>
+      <textarea id="dTitulo" rows="2" ${ro} aria-label="${L("d.titulo")}">${esc(tk.titulo)}</textarea>
+      <button class="icon-btn" type="button" data-close="1" aria-label="${L("d.fechar")}">×</button>
     </div>
     <div class="d-body">
-      ${t.resumo ? `<p style="margin:0;color:var(--muted)">${esc(t.resumo)}</p>` : ""}
+      ${tk.resumo ? `<p style="margin:0;color:var(--muted)">${esc(tk.resumo)}</p>` : ""}
       <div class="grid2">
-        <label class="lbl">Status<select class="field" id="dStatus" ${ro}>${STATUS.map(s => `<option value="${s.id}" ${s.id === statusVal ? "selected" : ""}>${s.nome}</option>`).join("")}<option value="descartada" ${statusVal === "descartada" ? "selected" : ""}>Descartada</option></select></label>
-        <label class="lbl">Prioridade<select class="field" id="dPrio" ${ro}>${["alta", "media", "baixa"].map(p => `<option value="${p}" ${p === t.prioridade ? "selected" : ""}>${p === "media" ? "média" : p}</option>`).join("")}</select></label>
-        <label class="lbl">Projetos<input class="field" id="dProjeto" list="dlProjetos" value="${esc(projetosOf(t).join(", "))}" placeholder="Site, Ferramentas" title="Um ou mais, separados por vírgula; o primeiro é o principal" ${ro}><datalist id="dlProjetos">${projetos.map(p => `<option value="${esc(p)}">`).join("")}</datalist></label>
-        ${ESCOPO.areas.length > 1 ? `<label class="lbl">Área<select class="field" id="dArea" ${ro}>${ESCOPO.areas.map(a => `<option value="${esc(a.id)}" ${a.id === t.area ? "selected" : ""}>${esc(a.nome)}</option>`).join("")}</select></label>` : ""}
-        <label class="lbl">Prazo<input class="field" type="date" id="dPrazo" value="${esc(t.prazo || "")}" ${ro}></label>
-        <label class="lbl">Criada<span class="date" style="padding-top:8px">${ddmmhh(t.criado_em)}</span></label>
+        <label class="lbl">${L("d.status")}<select class="field" id="dStatus" ${ro}>${STATUS.map(s => `<option value="${s}" ${s === statusVal ? "selected" : ""}>${esc(stNome(s))}</option>`).join("")}<option value="descartada" ${statusVal === "descartada" ? "selected" : ""}>${L("st.descartada")}</option></select></label>
+        <label class="lbl">${L("d.prio")}<select class="field" id="dPrio" ${ro}>${["alta", "media", "baixa"].map(p => `<option value="${p}" ${p === tk.prioridade ? "selected" : ""}>${esc(prNome(p))}</option>`).join("")}</select></label>
+        <label class="lbl">${L("d.projetos")}<input class="field" id="dProjeto" list="dlProjetos" value="${esc(projetosOf(tk).join(", "))}" placeholder="${L("d.projetosPh")}" title="${L("d.projetosTitle")}" ${ro}><datalist id="dlProjetos">${projetos.map(p => `<option value="${esc(p)}">`).join("")}</datalist></label>
+        ${ESCOPO.areas.length > 1 ? `<label class="lbl">${L("d.area")}<select class="field" id="dArea" ${ro}>${ESCOPO.areas.map(a => `<option value="${esc(a.id)}" ${a.id === tk.area ? "selected" : ""}>${esc(a.nome || a.id)}</option>`).join("")}</select></label>` : ""}
+        <label class="lbl">${L("d.prazo")}<input class="field" type="date" id="dPrazo" value="${esc(tk.prazo || "")}" ${ro}></label>
+        <label class="lbl">${L("d.criada")}<span class="date" style="padding-top:8px">${esc(fmtDataHora(tk.criado_em))}</span></label>
       </div>
-      <label class="lbl">Tags<input class="field" id="dTags" value="${esc((t.tags || []).filter(x => !x.startsWith("projeto:")).join(", "))}" placeholder="pessoa:ana, tema:financeiro" ${ro}></label>
-      <label class="lbl">Próximo passo<input class="field" id="dProx" value="${esc(t.proximo_passo)}" placeholder="A próxima ação concreta" ${ro}></label>
-      <label class="lbl">Contexto<textarea class="field" id="dCtx" rows="5" placeholder="Pessoas, decisões, por que isso existe" ${ro}>${esc(t.contexto)}</textarea></label>
+      <label class="lbl">${L("d.tags")}<input class="field" id="dTags" value="${esc((tk.tags || []).filter(x => !x.startsWith("projeto:")).join(", "))}" placeholder="${L("d.tagsPh")}" ${ro}></label>
+      <label class="lbl">${L("d.prox")}<input class="field" id="dProx" value="${esc(tk.proximo_passo)}" placeholder="${L("d.proxPh")}" ${ro}></label>
+      <label class="lbl">${L("d.ctx")}<textarea class="field" id="dCtx" rows="5" placeholder="${L("d.ctxPh")}" ${ro}>${esc(tk.contexto)}</textarea></label>
       <div>
-        <p class="sec-title">Ligações</p>
+        <p class="sec-title">${L("d.ligacoes")}</p>
         <div class="rel-list">
-          ${t.pai ? relRow("mãe", t.pai, false) : ""}
-          ${filhos.map(f => relRow("sub", f.id, false)).join("")}
-          ${(t.relacionadas || []).map(r => relRow("ligada", r, !ro)).join("")}
-          ${!t.pai && !filhos.length && !(t.relacionadas || []).length ? '<span class="hint">Nenhuma ligação ainda.</span>' : ""}
+          ${tk.pai ? relRow("rel.mae", tk.pai, false) : ""}
+          ${filhos.map(f => relRow("rel.sub", f.id, false)).join("")}
+          ${(tk.relacionadas || []).map(r => relRow("rel.ligada", r, !ro)).join("")}
+          ${!tk.pai && !filhos.length && !(tk.relacionadas || []).length ? `<span class="hint">${L("rel.nenhuma")}</span>` : ""}
           ${ro ? "" : `<form class="rel-add" id="relForm">
-            <select class="field" id="rTipo" aria-label="Tipo de ligação"><option value="rel">Ligar a</option><option value="pai">É subtarefa de</option></select>
-            <select class="field" id="rAlvo" aria-label="Tarefa"><option value="">Escolha a tarefa…</option>${outras.map(o => `<option value="${esc(o.id)}">${esc(o.titulo)}</option>`).join("")}</select>
-            <button class="btn" type="submit">Ligar</button></form>`}
-          ${t.pai && !ro ? `<button type="button" class="mini" id="unPai" style="align-self:flex-start">Deixar de ser subtarefa</button>` : ""}
+            <select class="field" id="rTipo" aria-label="${L("rel.tipoAria")}"><option value="rel">${L("rel.ligarA")}</option><option value="pai">${L("rel.subDe")}</option></select>
+            <select class="field" id="rAlvo" aria-label="${L("rel.alvoAria")}"><option value="">${L("rel.escolha")}</option>${outras.map(o => `<option value="${esc(o.id)}">${esc(o.titulo)}</option>`).join("")}</select>
+            <button class="btn" type="submit">${L("ligar")}</button></form>`}
+          ${tk.pai && !ro ? `<button type="button" class="mini" id="unPai" style="align-self:flex-start">${L("rel.deixarSub")}</button>` : ""}
         </div>
       </div>
       <div>
-        <p class="sec-title">Conversas no Claude</p>
+        <p class="sec-title">${L("d.conversas")}</p>
         <div class="links">
-          ${(t.conversas || []).map((c, i) => `<div class="conv-row">
-            <span class="ct">${esc(c.titulo || c.id)}${c.arquivada ? ' <span class="chip">arquivada</span>' : ""}<small>${esc(convLink(c))}</small></span>
-            ${convBtn(c, "Abrir ↗")}
-            <button type="button" class="mini" data-copyconv="${i}">Copiar link</button>
-            ${ro ? "" : `<button type="button" class="mini" data-rmconv="${i}">remover</button>`}
-          </div>`).join("") || '<span class="hint">Nenhuma conversa ligada a esta tarefa.</span>'}
-          ${ro ? "" : `<form class="conv-add" id="convForm"><input class="field" id="cLink" placeholder="Link ou id da conversa (claude://… ou local_…)" required><input class="field" id="cTit" placeholder="Título (opcional)"><button class="btn" type="submit">Ligar</button></form>`}
+          ${(tk.conversas || []).map((c, i) => convRow(c, i, ro)).join("") || `<span class="hint">${L("conv.nenhuma")}</span>`}
+          ${ro ? "" : `<form class="conv-add" id="convForm"><input class="field" id="cLink" placeholder="${L("conv.ph")}" required><input class="field" id="cTit" placeholder="${L("conv.titPh")}"><button class="btn" type="submit">${L("ligar")}</button></form>`}
         </div>
       </div>
       <div>
-        <p class="sec-title">Links e evidências</p>
+        <p class="sec-title">${L("d.links")}</p>
         <div class="links">
-          ${(t.links || []).map((l, i) => `<div class="link-row"><a href="${esc(/^https?:\/\//.test(l.url) ? l.url : "#")}" target="_blank" rel="noopener">${esc(l.rotulo || l.url)}</a>${ro ? "" : `<button type="button" data-rmlink="${i}">remover</button>`}</div>`).join("") || '<span class="hint">Nenhum link ainda.</span>'}
-          ${ro ? "" : `<form class="link-add" id="linkForm"><input class="field" id="lRot" placeholder="Rótulo (ex.: PR #356)"><input class="field" id="lUrl" type="url" placeholder="https://…" required><button class="btn" type="submit">Adicionar</button></form>`}
+          ${(tk.links || []).map((l, i) => `<div class="link-row"><a href="${esc(/^https?:\/\//.test(l.url) ? l.url : "#")}" target="_blank" rel="noopener">${esc(l.rotulo || l.url)}</a>${ro ? "" : `<button type="button" data-rmlink="${i}">${L("remover")}</button>`}</div>`).join("") || `<span class="hint">${L("links.nenhum")}</span>`}
+          ${ro ? "" : `<form class="link-add" id="linkForm"><input class="field" id="lRot" placeholder="${L("links.rotPh")}"><input class="field" id="lUrl" type="url" placeholder="https://…" required><button class="btn" type="submit">${L("links.add")}</button></form>`}
         </div>
       </div>
       <div>
-        <p class="sec-title">Histórico</p>
-        ${ro ? "" : `<form class="note-add" id="noteForm" style="margin-bottom:10px"><input class="field" id="nTxt" placeholder="Anotar o que andou"><button class="btn" type="submit">Anotar</button></form>`}
-        <ul class="timeline">${(t.historico || []).map(h => `<li><span class="date">${ddmmhh(h.em)}${h.por && h.por !== "pagina" ? " · " + esc(h.por) : ""}</span>${esc(h.texto)}</li>`).join("")}</ul>
+        <p class="sec-title">${L("d.historico")}</p>
+        ${ro ? "" : `<form class="note-add" id="noteForm" style="margin-bottom:10px"><input class="field" id="nTxt" placeholder="${L("hist.notePh")}"><button class="btn" type="submit">${L("hist.anotar")}</button></form>`}
+        <ul class="timeline">${(tk.historico || []).map(h => `<li><span class="date">${esc(fmtDataHora(h.em))}${h.por && h.por !== "pagina" ? " · " + esc(h.por) : ""}</span>${esc(h.texto)}</li>`).join("")}</ul>
       </div>
       <div class="d-foot">
-        <span class="src">Origem: ${esc(t.fonte?.tipo || "manual")}${t.fonte?.ref ? " · " + esc(t.fonte.ref) : ""}${(t.chaves || []).length ? " · " + t.chaves.map(esc).join(", ") : ""}</span>
+        <span class="src">${esc(t("d.origem", { o: (tk.fonte?.tipo || "manual") + (tk.fonte?.ref ? " · " + tk.fonte.ref : "") + ((tk.chaves || []).length ? " · " + tk.chaves.join(", ") : "") }))}</span>
         ${ro ? "" : ui.confirmDel
-          ? `<span style="display:flex;gap:6px;align-items:center"><span class="hint">Apagar de vez?</span><button class="btn danger" type="button" id="delYes">Apagar</button><button class="btn" type="button" id="delNo">Cancelar</button></span>`
-          : `<button class="btn danger" type="button" id="delAsk">Apagar tarefa</button>`}
+          ? `<span style="display:flex;gap:6px;align-items:center"><span class="hint">${L("del.pergunta")}</span><button class="btn danger" type="button" id="delYes">${L("del.apagar")}</button><button class="btn" type="button" id="delNo">${L("del.cancelar")}</button></span>`
+          : `<button class="btn danger" type="button" id="delAsk">${L("del.ask")}</button>`}
       </div>
     </div>
   </aside>`;
@@ -610,6 +925,14 @@ $("#fRec").addEventListener("click", () => { ui.showRec = !ui.showRec; persistUi
 $("#fView").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ui.view = b.dataset.v; persistUi(); render(); });
 function openTask(id) { ui.openId = id; ui.confirmDel = false; renderDrawer(true); setTimeout(() => $("#dTitulo")?.focus(), 0); }
 
+// Conversa do Claude Code: copia "claude --resume <uuid>" (não abre o card nem o app)
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-resume]"); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const cmd = b.dataset.resume;
+  copyText(cmd, "toast.cmdCopiado", t("toast.naoCopiouCmd", { cmd }));
+}, true);
+// Conversa do app: se o claude:// não abrir nada, copia o link
 document.addEventListener("click", e => {
   const a = e.target.closest("a[data-conv]"); if (!a) return;
   const link = a.dataset.conv; let left = false;
@@ -618,8 +941,8 @@ document.addEventListener("click", e => {
   setTimeout(() => {
     window.removeEventListener("blur", onBlur);
     if (!left && document.visibilityState === "visible") navigator.clipboard?.writeText(link).then(
-      () => toast("O app não abriu daqui. Copiei o link: cole na barra do navegador."),
-      () => toast("O app não abriu daqui. Use Copiar link na tarefa."));
+      () => toast(t("toast.appNaoAbriu")),
+      () => toast(t("toast.appNaoAbriu2", { btn: t("conv.copiarLink") })));
   }, 1500);
 }, true);
 function chipFilter(e) { const g = e.target.closest("[data-tag]"); if (!g) return false; e.stopPropagation(); ui.tag = ui.tag === g.dataset.tag ? "" : g.dataset.tag; persistUi(); render(); return true; }
@@ -635,19 +958,22 @@ $("#main").addEventListener("click", e => {
     const body = ativo ? { ativo, ultima: addDays(todayStr(), -1), atualizado_em: nowIso() } : { ativo, atualizado_em: nowIso() };
     Object.assign(r, body); queue("rec:" + r.id, () => db.doc("recorrentes/" + r.id).update(body).then(() => true)); renderMain(); if (ativo) setTimeout(materializar, 300); return; }
   const dl = e.target.closest("[data-recdel]");
-  if (dl) { const id = dl.dataset.recdel; if (dl.dataset.confirm !== "1") { dl.dataset.confirm = "1"; dl.textContent = "confirmar"; return; }
-    recs = recs.filter(x => x.id !== id); queue("rec:" + id, () => db.doc("recorrentes/" + id).delete().then(() => true)); renderMain(); toast("Recorrente apagada (os cards que ela já gerou ficam)"); }
+  if (dl) { const id = dl.dataset.recdel; if (dl.dataset.confirm !== "1") { dl.dataset.confirm = "1"; dl.textContent = t("recs.confirmar"); return; }
+    recs = recs.filter(x => x.id !== id); queue("rec:" + id, () => db.doc("recorrentes/" + id).delete().then(() => true)); renderMain(); toast(t("toast.recApagada")); }
 }, true);
 $("#main").addEventListener("change", e => { if (e.target.name === "tipo") syncRecForm(); });
 $("#main").addEventListener("submit", e => { if (e.target.id === "recForm") { e.preventDefault(); saveRec(e.target); } });
-$("#main").addEventListener("click", e => { if (ui.view === "recorrentes") return; if (e.target.closest("a")) return; if (chipFilter(e)) return; const el = e.target.closest("[data-id]"); if (el) openTask(el.dataset.id); });
-$("#main").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !e.target.closest("a")) { const el = e.target.closest("[data-id]"); if (el && e.target === el) { e.preventDefault(); openTask(el.dataset.id); } } });
+$("#main").addEventListener("click", e => { if (ui.view === "recorrentes") return; if (e.target.closest("a, [data-resume]")) return; if (chipFilter(e)) return; const el = e.target.closest("[data-id]"); if (el) openTask(el.dataset.id); });
+$("#main").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !e.target.closest("a, [data-resume]")) { const el = e.target.closest("[data-id]"); if (el && e.target === el) { e.preventDefault(); openTask(el.dataset.id); } } });
 $("#today").addEventListener("click", e => { const o = e.target.closest("[data-open]"); if (o) openTask(o.dataset.open); });
 $("#today").addEventListener("change", e => {
-  const i = e.target.dataset.plano; if (i == null || !db || !hoje) return;
+  const i = e.target.dataset.plano; if (i == null || !db || !hoje || !hojeKey) return;
+  // grava no diário que está na tela (dias/<hojeKey>), mesmo que a meia-noite já tenha passado; depois confere o dia
+  const key = hojeKey;
   const plano = (hoje.bom_dia.plano || []).map((p, k) => k === +i ? Object.assign({}, p, { feito: e.target.checked }) : p);
   hoje = Object.assign({}, hoje, { bom_dia: Object.assign({}, hoje.bom_dia, { plano }) }); renderToday();
-  queue("dia", () => db.doc("dias/" + todayStr()).update({ bom_dia: { plano } }));
+  queue("dia:" + key, () => db.doc("dias/" + key).update({ bom_dia: { plano } }));
+  subDia();
 });
 
 let dragId = null;
@@ -659,55 +985,55 @@ $("#main").addEventListener("drop", e => { const c = e.target.closest(".col"); i
 const host = $("#drawerHost");
 host.addEventListener("click", e => {
   if (e.target.closest("[data-close]")) { ui.openId = null; renderDrawer(true); return; }
-  const t = byId(ui.openId); if (!t) return;
+  const tk = byId(ui.openId); if (!tk) return;
   const go = e.target.closest("[data-open]"); if (go) { openTask(go.dataset.open); return; }
-  const cp = e.target.closest("[data-copyconv]"); if (cp) { const c = (t.conversas || [])[+cp.dataset.copyconv]; if (c) copyText(convLink(c)); return; }
-  const rc = e.target.closest("[data-rmconv]"); if (rc) { patchTask(t.id, { conversas: (t.conversas || []).filter((_, i) => i !== +rc.dataset.rmconv) }, "Conversa desligada"); renderDrawer(true); return; }
-  const rm = e.target.closest("[data-rmlink]"); if (rm) { patchTask(t.id, { links: (t.links || []).filter((_, i) => i !== +rm.dataset.rmlink) }); renderDrawer(true); return; }
-  const ur = e.target.closest("[data-unrel]"); if (ur) { unlinkRelated(t.id, ur.dataset.unrel); renderDrawer(true); return; }
-  if (e.target.id === "unPai") { const p = byId(t.pai); patchTask(t.id, { pai: null }, "Deixou de ser subtarefa de " + (p ? p.titulo : t.pai)); renderDrawer(true); return; }
+  const cp = e.target.closest("[data-copyconv]"); if (cp) { const c = (tk.conversas || [])[+cp.dataset.copyconv]; if (c) copyText(convLink(c)); return; }
+  const rc = e.target.closest("[data-rmconv]"); if (rc) { patchTask(tk.id, { conversas: (tk.conversas || []).filter((_, i) => i !== +rc.dataset.rmconv) }, t("hist.convDesligada")); renderDrawer(true); return; }
+  const rm = e.target.closest("[data-rmlink]"); if (rm) { patchTask(tk.id, { links: (tk.links || []).filter((_, i) => i !== +rm.dataset.rmlink) }); renderDrawer(true); return; }
+  const ur = e.target.closest("[data-unrel]"); if (ur) { unlinkRelated(tk.id, ur.dataset.unrel); renderDrawer(true); return; }
+  if (e.target.id === "unPai") { const p = byId(tk.pai); patchTask(tk.id, { pai: null }, t("hist.deixouSub", { t: p ? p.titulo : tk.pai })); renderDrawer(true); return; }
   if (e.target.id === "delAsk") { ui.confirmDel = true; renderDrawer(true); }
   if (e.target.id === "delNo") { ui.confirmDel = false; renderDrawer(true); }
-  if (e.target.id === "delYes") deleteTask(t.id);
+  if (e.target.id === "delYes") deleteTask(tk.id);
 });
 host.addEventListener("change", e => {
-  const t = byId(ui.openId); if (!t) return;
+  const tk = byId(ui.openId); if (!tk) return;
   const v = e.target.value;
   switch (e.target.id) {
-    case "dTitulo": if (v.trim() && v.trim() !== t.titulo) patchTask(t.id, { titulo: v.trim() }); break;
-    case "dStatus": v === "descartada" ? setStatus(t.id, "feito", "descartada") : setStatus(t.id, v); break;
-    case "dPrio": patchTask(t.id, { prioridade: v }); break;
-    case "dProjeto": { const l = projList(v); if (l.join("|") !== projetosOf(t).join("|")) patchTask(t.id, Object.assign(projPatch(l), { tags: syncProjetoTag(t.tags, l) })); break; }
-    case "dArea": patchTask(t.id, { area: v }); break;
-    case "dPrazo": patchTask(t.id, { prazo: v || null }, v ? "Prazo: " + ddmm(v) : "Prazo removido"); break;
-    case "dTags": { const novas = [...new Set(v.split(",").map(normTag).filter(Boolean))]; patchTask(t.id, { tags: syncProjetoTag(novas, projetosOf(t)) }); break; }
-    case "dProx": if (v.trim() !== (t.proximo_passo || "")) patchTask(t.id, { proximo_passo: v.trim() }); break;
-    case "dCtx": if (v !== (t.contexto || "")) patchTask(t.id, { contexto: v }); break;
+    case "dTitulo": if (v.trim() && v.trim() !== tk.titulo) patchTask(tk.id, { titulo: v.trim() }); break;
+    case "dStatus": v === "descartada" ? setStatus(tk.id, "feito", "descartada") : setStatus(tk.id, v); break;
+    case "dPrio": patchTask(tk.id, { prioridade: v }); break;
+    case "dProjeto": { const l = projList(v); if (l.join("|") !== projetosOf(tk).join("|")) patchTask(tk.id, Object.assign(projPatch(l), { tags: syncProjetoTag(tk.tags, l) })); break; }
+    case "dArea": patchTask(tk.id, { area: v }); break;
+    case "dPrazo": patchTask(tk.id, { prazo: v || null }, v ? t("hist.prazo", { d: fmtData(v) }) : t("hist.prazoRem")); break;
+    case "dTags": { const novas = [...new Set(v.split(",").map(normTag).filter(Boolean))]; patchTask(tk.id, { tags: syncProjetoTag(novas, projetosOf(tk)) }); break; }
+    case "dProx": if (v.trim() !== (tk.proximo_passo || "")) patchTask(tk.id, { proximo_passo: v.trim() }); break;
+    case "dCtx": if (v !== (tk.contexto || "")) patchTask(tk.id, { contexto: v }); break;
   }
 });
 host.addEventListener("submit", e => {
   e.preventDefault();
-  const t = byId(ui.openId); if (!t) return;
+  const tk = byId(ui.openId); if (!tk) return;
   if (e.target.id === "linkForm") {
-    const url = $("#lUrl").value.trim(); if (!/^https?:\/\//.test(url)) { toast("Use um link que comece com https://"); return; }
-    patchTask(t.id, { links: [...(t.links || []), { rotulo: $("#lRot").value.trim(), url }] }); renderDrawer(true);
+    const url = $("#lUrl").value.trim(); if (!/^https?:\/\//.test(url)) { toast(t("toast.httpsOnly")); return; }
+    patchTask(tk.id, { links: [...(tk.links || []), { rotulo: $("#lRot").value.trim(), url }] }); renderDrawer(true);
   }
   if (e.target.id === "convForm") {
-    const raw = $("#cLink").value.trim(), m = raw.match(/local_[A-Za-z0-9-]{8,}/);
-    if (!m) { toast("Cole o link da conversa (claude://claude.ai/epitaxy/…) ou o id local_…"); return; }
-    if ((t.conversas || []).some(c => c.id === m[0])) { toast("Essa conversa já está ligada"); return; }
-    const novo = { id: m[0], titulo: $("#cTit").value.trim() || m[0], link: "claude://claude.ai/epitaxy/" + m[0], arquivada: false };
-    patchTask(t.id, { conversas: [...(t.conversas || []), novo], chaves: [...new Set([...(t.chaves || []), "conversa:" + m[0]])] }, "Conversa ligada: " + novo.titulo); renderDrawer(true);
+    const c = parseConv($("#cLink").value.trim());
+    if (!c) { toast(t("toast.convInvalida")); return; }
+    if ((tk.conversas || []).some(x => x.id === c.id)) { toast(t("toast.convJa")); return; }
+    const novo = Object.assign({ id: c.id, titulo: $("#cTit").value.trim() || c.id, link: c.link }, c.retomar ? { retomar: c.retomar } : {}, { arquivada: false });
+    patchTask(tk.id, { conversas: [...(tk.conversas || []), novo], chaves: [...new Set([...(tk.chaves || []), "conversa:" + c.id])] }, t("hist.convLigada", { t: novo.titulo })); renderDrawer(true);
   }
   if (e.target.id === "relForm") {
     const alvo = $("#rAlvo").value, tipo = $("#rTipo").value; if (!alvo) return;
     if (tipo === "pai") {
-      if (wouldCycle(t.id, alvo)) { toast("Isso criaria um ciclo: a outra tarefa já está abaixo desta."); return; }
-      patchTask(t.id, { pai: alvo }, "Virou subtarefa de " + byId(alvo).titulo);
-    } else linkRelated(t.id, alvo);
+      if (wouldCycle(tk.id, alvo)) { toast(t("toast.ciclo")); return; }
+      patchTask(tk.id, { pai: alvo }, t("hist.virouSub", { t: byId(alvo).titulo }));
+    } else linkRelated(tk.id, alvo);
     renderDrawer(true);
   }
-  if (e.target.id === "noteForm") { const n = $("#nTxt").value.trim(); if (n) { patchTask(t.id, {}, n); renderDrawer(true); $("#nTxt")?.focus(); } }
+  if (e.target.id === "noteForm") { const n = $("#nTxt").value.trim(); if (n) { patchTask(tk.id, {}, n); renderDrawer(true); $("#nTxt")?.focus(); } }
 });
 host.addEventListener("keydown", e => { if (e.target.id === "dTitulo" && e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
 document.addEventListener("keydown", e => {
@@ -716,33 +1042,47 @@ document.addEventListener("keydown", e => {
 });
 
 // ===== Boot =====
+// O diário do dia (dias/<hoje>) depende do fuso e do relógio: assina de novo quando as preferências mudam o "hoje"
+// e quando o dia vira com a página aberta (conferido a cada minuto e ao voltar para a aba).
+let diaUnsub = null;
+function subDia() {
+  const k = todayStr(); if (!db || k === hojeKey) return;
+  try { if (typeof diaUnsub === "function") diaUnsub(); } catch (e) {}
+  hojeKey = k; hoje = null; renderToday(); // o plano de ontem sai da tela até o de hoje chegar
+  diaUnsub = db.doc("dias/" + k).onSnapshot(s => { if (k !== hojeKey) return; hoje = s.exists ? s.data() : null; renderToday(); }, () => {});
+}
+setInterval(subDia, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) subDia(); });
 render();
 (async () => {
   try { db = window.claude ? await window.claude.use("db") : null; } catch (e) { db = null; }
-  if (!db) { loaded = true; canWrite = false; setSync("off", "Banco indisponível"); banner("O banco deste artefato não respondeu nesta visualização. Abra a página no claude.ai para ver e editar as tarefas."); render(); return; }
+  if (!db) { loaded = true; canWrite = false; setSync("off", "sync.indisp"); banner("banner.semDb"); render(); return; }
   try {
     const user = window.claude ? await window.claude.use("user") : null;
     const w = user ? await user.can("data.write") : null;
-    if (w === false) { canWrite = false; banner("Você tem acesso só de leitura a estas tarefas."); }
+    if (w === false) { canWrite = false; banner("banner.leitura"); }
   } catch (e) {}
   db.doc("config/preferencias").onSnapshot(s => {
-    if (!s.exists) return;
-    const p = s.data();
-    ESCOPO = Object.assign({}, ESCOPO, {
-      nome: p.nome || ESCOPO.nome, sub: p.sub || "", areas: (p.areas && p.areas.length) ? p.areas : ESCOPO.areas,
-      parada_dias: p.parada_dias || 14, zumbi_dias: p.zumbi_dias || 60, exemploProjeto: p.exemplo_projeto || ESCOPO.exemploProjeto,
-    });
-    render();
-  }, () => {});
+    const first = !prefsLoaded; prefsLoaded = true;
+    if (s.exists) {
+      const p = s.data() || {};
+      setLocale(p);
+      ESCOPO = Object.assign({}, ESCOPO, {
+        nome: p.nome || ESCOPO.nome, sub: p.sub || "", areas: (p.areas && p.areas.length) ? p.areas : ESCOPO.areas, area_padrao: p.area_padrao || "",
+        parada_dias: p.parada_dias || 14, zumbi_dias: p.zumbi_dias || 60, exemploProjeto: p.exemplo_projeto || ESCOPO.exemploProjeto,
+      });
+    }
+    subDia(); render(); if (first) materializar();
+  }, () => { if (!prefsLoaded) { prefsLoaded = true; materializar(); } });
   db.doc("indice/ativos").onSnapshot(s => { indiceIds = new Set(s.exists ? Object.keys(s.data().itens || {}) : []); }, () => {});
-  db.doc("dias/" + todayStr()).onSnapshot(s => { hoje = s.exists ? s.data() : null; renderToday(); }, () => {});
+  subDia();
   db.collection("recorrentes").onSnapshot(snap => {
     recs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); const first = !recLoaded; recLoaded = true;
     if (ui.view === "recorrentes") render(); if (first) materializar();
   }, () => { recLoaded = true; });
   col().onSnapshot(snap => {
     tasks = snap.docs.map(d => { const x = Object.assign({ id: d.id }, d.data()); x.status = stId(x.status); if (!PRIO_ORD.hasOwnProperty(x.prioridade)) x.prioridade = "media"; return x; });
-    const first = !loaded; loaded = true; setSync("ok", "Sincronizado · " + tasks.length + " tarefas"); render(); if (first) materializar();
-  }, err => { setSync("off", "Sincronização parou"); banner("A conexão com o banco caiu (" + err.code + "). Recarregue a página."); });
+    const first = !loaded; loaded = true; setSync("ok", "sync.ok", { n: tasks.length }); render(); if (first) materializar();
+  }, err => { setSync("off", "sync.parou"); banner("banner.caiu", { code: err && err.code }); });
 })();
 </script>

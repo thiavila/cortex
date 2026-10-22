@@ -2,7 +2,7 @@
 
 `<skills>` = a pasta onde estão as skills do quadro (a mãe da pasta `tarefas`).
 
-Procedimento único, usado por `tarefas`, `quadro-tarefas`, `tarefas-io`, `/bom-dia` e `/boa-noite`.
+Procedimento único, usado por `tarefas`, `quadro-tarefas`, `tarefas-io`, `fechar`, `/bom-dia` e `/boa-noite`.
 
 **Princípio:** cada pessoa tem um quadro por conta do Claude. O quadro é um artefato da própria conta, e
 só a conta dona o acha na sua lista de artefatos (`Artifact list`, "mine"). Nada de escolher pelo nome do
@@ -12,10 +12,33 @@ app, pela pasta ou por `CLAUDE_CONFIG_DIR`. O arquivo local é só um atalho par
 Por isso a prova de que o quadro é desta conta é aparecer em "mine", e o atalho local só guarda quadros
 que já passaram por essa prova.
 
+## 0. Capacidades desta sessão
+O Cortex roda no app desktop do Claude (aba Code) e no Claude Code de terminal (CLI), no macOS, Windows e Linux. Algumas
+ferramentas só existem no app. Antes de usar uma, ver se ela está entre as tools da sessão (carregada ou adiada; as
+adiadas se carregam com `ToolSearch`). **Faltou uma → seguir pelo caminho da direita, sem quebrar e sem comentar**,
+a não ser que a falta mude o resultado para a pessoa (aí uma linha no fim).
+
+| Ferramenta | Sem ela |
+|---|---|
+| `ArtifactData`, `Artifact` | o quadro não é acessível nesta sessão (Codex, Gemini, Claude Code sem login do claude.ai, ou um CLI em que os artefatos ainda não estão liberados): parar e dizer em uma linha que o quadro precisa de uma sessão com artefatos do Claude (o app desktop, aba Code) |
+| `get_session` (`"self"`) | a conversa vem do aviso do hook: `sessao=`, `cwd=`, `entrada=`; no CLI a chave é `conversa:cli:<sessao>` e o título é a primeira mensagem. Sem aviso do hook: `cwd` = a pasta atual, conversa sem chave (não ligar) |
+| `set_session_title` | não renomear nada (nem a própria conversa, nem propor `✏️` no `/boa-noite`) |
+| `list_sessions`, `list_events` | conversas pelos transcritos locais: `sh <skills>/tarefas/py <skills>/boa-noite/conversas.py extrair --backend transcritos …` (o `/boa-noite` já usa o script; o `/bom-dia` lê o manifesto dele em vez de `list_events`) |
+| `archive_session` | não arquivar: listar no relatório as conversas que podem ser fechadas |
+| `send_message` | o recado vai para o `historico` do card e para a resposta, com o link/comando para retomar a conversa |
+| `spawn_task` | tarefa sugerida vira texto: título curto + o prompt pronto para a pessoa colar numa conversa nova |
+| `list_scheduled_tasks`, `list_task_runs` | pular as rotinas |
+| `AskUserQuestion` | perguntar em texto, com as opções numeradas, e esperar a resposta |
+| `Agent` (subagentes) | resumir as conversas na própria sessão, em lotes menores |
+
+**Python:** sempre `sh <skills>/tarefas/py <script> …` (acha `python3`, `python` ou `py -3`). Sem Python 3.8+, os passos
+que usam script ficam de fora e a skill diz em uma linha o que instalar.
+
+**Abrir um link no navegador:** `open <url>` (macOS), `xdg-open <url>` (Linux), `start "" <url>` (Windows/Git Bash:
+`cmd //c start "" <url>`); falhou ou sem shell → só mostrar o link.
+
 ## Busca rápida (primeira mensagem do hook e escritas ao longo do dia)
-0. **Sem a ferramenta `ArtifactData`** (Codex, Gemini, CLI sem artefatos): parar e dizer que o quadro só é
-   acessível onde o Claude tem artefatos (app do Claude, claude.ai/code).
-1. `python3 <skills>/tarefas/quadros.py listar` → URLs já confirmadas nesta máquina (de qualquer conta
+1. `sh <skills>/tarefas/py <skills>/tarefas/quadros.py listar` → URLs já confirmadas nesta máquina (de qualquer conta
    da pessoa). Para cada uma, em paralelo, a leitura que o chamador já precisa (em geral `get config/preferencias`;
    na primeira mensagem também `get indice/ativos`). As que voltam "sem acesso" são de outra conta da pessoa:
    é esperado e não se comenta.
@@ -23,9 +46,10 @@ que já passaram por essa prova.
 3. **Nenhuma, ou mais de uma** → busca completa.
 
 ## Busca completa (uma vez por `/bom-dia`, `/boa-noite` e `/quadro-tarefas`, e quando a rápida não decide)
-1. `Artifact action: "list"` (`scope: "mine"`, `limit: 50`). Candidatos: títulos que começam com `Tarefas`.
-   Em paralelo, `get config/schema` em cada um. É quadro quando `formato == "quadro-tarefas"` (quadros antigos,
-   sem `formato`: `versao` + `escopo` presentes).
+1. `Artifact action: "list"` (`scope: "mine"`, `limit: 50`). O título não decide (a pessoa pode ter renomeado, e o
+   idioma muda): o que marca o quadro é `config/schema.formato == "quadro-tarefas"` (quadros antigos, sem `formato`:
+   `versao` + `escopo` presentes). Primeiro, `get config/schema` em paralelo nos títulos que começam com `Cortex`,
+   `Tarefas` ou `Tasks` e nos do atalho local; nenhum quadro entre eles → o mesmo `get` em todos os da lista.
 2. Junta com as URLs do atalho que responderam e **estão** em "mine". Uma que responde mas não está em
    "mine" é compartilhada por outra pessoa: não é deste quadro e não se escreve nela automaticamente.
 3. **Um quadro** → é este. **Dois ou mais** → vale o único com `config/preferencias.principal: true`. Nenhum ou
@@ -33,22 +57,21 @@ que já passaram por essa prova.
    (apagar, que é o normal para quadro antigo ou provisório, ou manter). Gravar `principal: true` no escolhido e
    `false` nos mantidos; os que a pessoa mandar apagar vão para `Artifact action: "delete"` (o app pede a
    confirmação dela) e saem do atalho (`quadros.py esquecer`). Depois disso a pergunta não volta.
-4. `python3 <skills>/tarefas/quadros.py lembrar --url <url> --titulo "<título>"` para cada quadro da
+4. `sh <skills>/tarefas/py <skills>/tarefas/quadros.py lembrar --url <url> --titulo "<título>"` para cada quadro da
    conta (inclusive os não principais: assim a busca rápida enxerga o empate da próxima vez). URL do atalho que
    não responde em nenhuma conta há muito tempo pode ser esquecida (`esquecer`).
 5. **Nenhum quadro** → dizer em uma linha que esta conta ainda não tem quadro e oferecer `/quadro-tarefas`.
    Se o usuário colar um link: testar com `get config/schema`; se estiver em "mine", `lembrar`; se não
    estiver (quadro de outra pessoa), só ler, e escrever apenas no que o usuário pedir explicitamente.
    A lista traz no máximo 50 artefatos: se a pessoa disser que tem quadro e ele não apareceu, pedir o link.
-6. Quadro antigo sem `formato` → na primeira escrita da sessão, `update` em `config/schema` com
-   `formato: "quadro-tarefas"` (com `if_version`). `versao` abaixo da atual (3) → na mesma escrita, as migrações de
-   `SCHEMA.md` § Migrações, em ordem (v1 → v2: `config/gestor` a partir de `export`; v2 → v3: cards em vários projetos).
+6. `config/schema` sem `formato`, ou `versao` abaixo da atual (4) → na primeira escrita da rodada, as migrações de
+   `<skills>/tarefas/MIGRACOES.md`, em ordem.
 
 ## Escopo
 `escopo` = `config/preferencias.escopo` do quadro achado. Nunca é critério para escolher o quadro.
-As fontes de cada escopo (agendas, reuniões, bases próprias) não ficam nas skills: vêm de `config/fontes` no
-banco do quadro (ou, sem ele, de `~/.claude/tarefas/fontes-<escopo>.md`, ou de um padrão genérico pelos conectores ligados).
-O gestor de tarefas (Linear, Jira, Notion…) é tipado à parte, em `config/gestor` (`SCHEMA.md` § `config/gestor`).
+As ferramentas de cada escopo (agenda, reuniões, chat, código, conversas) não ficam nas skills: vêm de `config/fontes`
+no banco do quadro (`SCHEMA.md` § `config/fontes`); sem ele, dos conectores ligados na sessão.
+O gestor de tarefas é tipado à parte, em `config/gestor` (`SCHEMA.md` § `config/gestor`).
 
 ## Regras
 - Escrever só no quadro escolhido acima nesta sessão. Nunca reaproveitar URL de outra sessão sem testar.

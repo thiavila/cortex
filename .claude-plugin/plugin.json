@@ -1,11 +1,11 @@
 {
   "name": "cortex",
   "displayName": "Cortex",
-  "description": "Um segundo cérebro no Claude: quadro de tarefas num artefato da sua conta, um card por conversa, /bom-dia e /boa-noite, e import/export.",
-  "version": "0.2.0",
+  "description": "Um segundo cérebro no Claude: quadro de tarefas num artefato da sua conta, um card por conversa, /bom-dia e /boa-noite, e import/export. Task board in your Claude account, in your language.",
+  "version": "0.3.0",
   "author": { "name": "Thiago Avila", "url": "https://github.com/thiavila" },
   "homepage": "https://github.com/thiavila/cortex",
   "repository": "https://github.com/thiavila/cortex",
   "license": "MIT",
-  "keywords": ["tarefas", "tasks", "kanban", "produtividade", "bom-dia", "boa-noite", "artifact"]
+  "keywords": ["tarefas", "tasks", "task-board", "daily-planning", "kanban", "produtividade", "bom-dia", "boa-noite", "artifact"]
 }

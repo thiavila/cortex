@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/tarefas-primeira-mensagem.py\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/skills/tarefas/py\" \"${CLAUDE_PLUGIN_ROOT}/hooks/tarefas-primeira-mensagem.py\"",
             "timeout": 5
           }
         ]

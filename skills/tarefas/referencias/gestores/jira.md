@@ -39,5 +39,5 @@ nomes. Ferramenta → coluna, no que o mapa não cobrir: `To Do` → `a_fazer`; 
 feito (`descartada` se a resolução for "Won't Do"/"Cancelado" ou o status for o do `mapa_status.descartada`).
 
 ## Cuidados
-- Comentário de fechamento curto, no idioma da pessoa, sem citar o Claude: "Concluído em DD/MM: <o que foi entregue>".
-- Faxina: "Fechado na limpeza de backlog de DD/MM" + transição para `mapa_status.descartada`.
+- Comentário de fechamento curto, no idioma da pessoa, sem citar o Claude: "Concluído em <data>: <o que foi entregue>" (data no formato do `locale`).
+- Faxina: "Fechado na limpeza de backlog de <data>" + transição para `mapa_status.descartada`.

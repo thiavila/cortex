@@ -1,0 +1,21 @@
+#!/bin/sh
+# Lançador de Python do Cortex (macOS, Linux e Windows/Git Bash). Uso: sh <skills>/tarefas/py <script.py> [args…]
+# Tenta $CORTEX_PYTHON (se definido), python3, python e py -3, nessa ordem; fica com o primeiro que for Python 3.8+
+# (isso também pula o atalho falso "python3" da Microsoft Store no Windows) e roda o script com ele.
+#   sh py --qual   imprime o comando escolhido.
+CHECK='import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)'
+if [ -n "$CORTEX_PYTHON" ] && "$CORTEX_PYTHON" -c "$CHECK" >/dev/null 2>&1; then
+  if [ "$1" = "--qual" ]; then echo "$CORTEX_PYTHON"; exit 0; fi
+  exec "$CORTEX_PYTHON" "$@"
+fi
+for c in python3 python "py -3"; do
+  # $c sem aspas de propósito: "py -3" são duas palavras.
+  # shellcheck disable=SC2086
+  if $c -c "$CHECK" >/dev/null 2>&1; then
+    if [ "$1" = "--qual" ]; then echo "$c"; exit 0; fi
+    # shellcheck disable=SC2086
+    exec $c "$@"
+  fi
+done
+echo "Cortex: Python 3.8+ não encontrado (python3, python, py -3); instale o Python 3 / Python 3.8+ not found (python3, python, py -3); install Python 3" >&2
+exit 127
