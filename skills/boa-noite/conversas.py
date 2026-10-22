@@ -12,16 +12,18 @@ Duas fontes (--backend):
   `<projects>/*/<uuid>.jsonl` da pasta de config ativa (a que tem a conversa atual; senão $CLAUDE_CONFIG_DIR ou
   ~/.claude). Só o nível de cima de cada projeto (subagentes ficam de fora, e registros de sidechain também);
   sessões headless/SDK (`claude -p`, rotinas) ficam de fora sem --incluir-sdk. Id = `cli:<uuid>`, link = null,
-  retomar = `claude --resume <uuid>`. Transcrito aberto pelo app desktop, quando o app está na máquina, sai com o id
-  `local_…` e o link do app (o mesmo id que os cards já têm); se ela for de outra conta/org do app
-  ($CLAUDE_CODE_ACCOUNT_UUID / $CLAUDE_CODE_ORGANIZATION_UUID, quando existem), fica de fora.
+  retomar = `claude --resume <uuid>`. Transcrito que o app desktop conhece (há metadados dele no app) sai com o id
+  `local_…` e o link do app (o mesmo id que os cards já têm), e só entra se a conta/org dele for, com certeza, a
+  atual: a de $CLAUDE_CODE_ACCOUNT_UUID / $CLAUDE_CODE_ORGANIZATION_UUID, completada pela pasta <conta>/<org> do
+  json da conversa atual no app. Sem como confirmar, fica de fora (falha fechada). Transcrito sem metadados do app
+  (CLI puro) entra: ele está na pasta projects da config ativa, que já é da conta.
 - auto (padrão): app quando há pasta do app E a conversa de --sessao está nela; senão transcritos. Uma linha no
   stderr diz qual foi e por quê.
 
 Transcritos: `<config>/projects/*/<cliSessionId>.jsonl`, em $CLAUDE_CONFIG_DIR e ~/.claude. Guarda um cursor por
 conversa (último uuid já resumido) e escreve, para cada conversa com novidade, um .txt só com as falas do usuário e o
-texto do assistente (sem thinking, sem tool results), dividido em partes de até --max-chars (nada é cortado: o
-resumo lê todas as partes). Datas: todo timestamp é convertido para o --fuso antes de comparar com --desde.
+texto do assistente (sem thinking, sem tool results), dividido em partes de até --max-chars (nada é cortado: fala
+maior que uma parte continua na parte seguinte, marcada com […]; o resumo lê todas as partes). Datas: todo timestamp é convertido para o --fuso antes de comparar com --desde.
 
 Uso (sempre com o lançador `sh <skills>/tarefas/py`):
   conversas.py extrair [--sessao <id desta conversa>] [--quadro <id do artefato>] --saida <dir> [--desde AAAA-MM-DD]
@@ -30,7 +32,8 @@ Uso (sempre com o lançador `sh <skills>/tarefas/py`):
   conversas.py confirmar [--quadro <id do artefato>] --manifesto <dir>/manifesto.json --ids local_a,cli:<uuid>
   --sessao: a conversa atual: `local_…` (app, get_session "self") ou `cli:<uuid>`/`<uuid>` (o `sessao=` do aviso do
             hook). Sem ela: $CLAUDE_CODE_HOST_SESSION_ID (app) ou $CLAUDE_CODE_SESSION_ID. A atual não se resume.
-  --fuso: config/preferencias.fuso (IANA). Sem ele, o fuso do sistema. --desde padrão = ontem nesse fuso.
+  --fuso: config/preferencias.fuso (IANA). Sem ele, o fuso do sistema. --desde padrão = ontem nesse fuso. Fuso
+          pedido que não carrega (sem zoneinfo/tzdata) = sai com código 3 e uma linha dizendo o que fazer.
   --desde: app: só vale para conversa com cursor perdido (transcript reescrito), que volta a ser lida por data;
            conversa sem cursor entra inteira (manifesto: primeira_leitura). transcritos: sem cursor, só entram os
            transcritos com atividade a partir de --desde (inteiros), para não engolir o histórico todo; com cursor,
@@ -39,7 +42,7 @@ Uso (sempre com o lançador `sh <skills>/tarefas/py`):
             Ficam em <dados>/state/boa-noite-cursores-quadro-<id>.json (<dados>: ver tarefas/caminhos.py); se ainda
             não existir, lê o de ~/.claude/state (de antes da v0.3) e o `confirmar` grava no novo.
   confirmar: depois que o resumo foi gravado no quadro, avança os cursores; sem isso a próxima rodada relê o mesmo
-             trecho.
+             trecho. Lê, junta e grava sob uma trava (<estado>.lock), com arquivo temporário único por processo.
 Manifesto (um item por conversa com novidade): id, titulo, cwd, branch, arquivada, ultima_atividade (no --fuso),
 rotina, repetida (rotinas), arquivos, cursor_perdido, primeira_leitura, chars, cursor_novo, link, retomar, backend.
 """
@@ -50,6 +53,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tarefas"))
 import caminhos  # noqa: E402
@@ -210,10 +214,36 @@ def mapa_app_por_cli(bases):
                 continue
             if d.get("cliSessionId"):
                 org_dir = os.path.dirname(f)
-                out[str(d["cliSessionId"])] = {"id": d["sessionId"], "titulo": d.get("title") or "",
-                                               "arquivada": bool(d.get("isArchived")),
-                                               "conta": (os.path.basename(os.path.dirname(org_dir)), os.path.basename(org_dir))}
+                cli = str(d["cliSessionId"])
+                if cli in out and out[cli]["pasta"] != org_dir:
+                    out[cli]["conta"] = (None, None)  # o mesmo uuid em duas contas/orgs: não dá para confirmar
+                    continue
+                out[cli] = {"id": d["sessionId"], "titulo": d.get("title") or "", "arquivada": bool(d.get("isArchived")),
+                            "pasta": org_dir, "conta": (os.path.basename(os.path.dirname(org_dir)), os.path.basename(org_dir))}
     return out
+
+
+def conta_atual(bases, sessao, mapa):
+    """(conta, org) desta sessão: $CLAUDE_CODE_ACCOUNT_UUID / $CLAUDE_CODE_ORGANIZATION_UUID, e o que faltar vem da
+    pasta <conta>/<org> do json da conversa atual no app (por local_… ou pelo uuid do CLI). Pedaço sem fonte = None."""
+    conta = os.environ.get("CLAUDE_CODE_ACCOUNT_UUID", "").strip() or None
+    org = os.environ.get("CLAUDE_CODE_ORGANIZATION_UUID", "").strip() or None
+    if conta and org:
+        return conta, org
+    pasta = None
+    s = (sessao or "").strip()
+    if s.startswith("local_"):
+        if re.fullmatch(r"local_[A-Za-z0-9_-]+", s):
+            hits = [h for b in bases for h in glob.glob(os.path.join(b, "*", "*", f"{s}.json"))]
+            pasta = os.path.dirname(hits[0]) if len(hits) == 1 else None
+    else:
+        cli = uuid_de(s)
+        if cli and cli in mapa:
+            pasta = mapa[cli]["pasta"]
+    if pasta:
+        conta = conta or os.path.basename(os.path.dirname(pasta))
+        org = org or os.path.basename(pasta)
+    return conta, org
 
 
 def link_app(sid):
@@ -257,13 +287,39 @@ def trecho(registros, cursor, desde, tz):
     return linhas, ultimo, perdido, rotina
 
 
+MARCA_CONT = "[…]"  # fala dividida entre partes: fim de um pedaço e começo do seguinte
+SEP = "\n\n"
+
+
+def pedacos(ln, max_chars):
+    """Fala `ln` em pedaços de até max_chars (com a marca de continuação incluída), cortando de preferência numa
+    quebra de linha ou espaço. Juntando os pedaços sem as marcas, volta a fala inteira."""
+    if len(ln) <= max_chars:
+        return [ln]
+    ini, fim = MARCA_CONT + " ", " " + MARCA_CONT
+    out, resto, primeiro = [], ln, True
+    while resto:
+        pre = "" if primeiro else ini
+        if len(pre) + len(resto) <= max_chars:
+            out.append(pre + resto)
+            break
+        cab = max(1, max_chars - len(pre) - len(fim))
+        corte = max(resto.rfind("\n", 0, cab + 1), resto.rfind(" ", 0, cab + 1))
+        if corte < cab * 0.8:
+            corte = cab  # sem espaço perto do fim: corta no tamanho
+        out.append(pre + resto[:corte] + fim)
+        resto, primeiro = resto[corte:], False
+    return out
+
+
 def gravar_partes(saida, nome, linhas, max_chars):
     partes, atual = [], ""
     for ln in linhas:
-        if atual and len(atual) + len(ln) > max_chars:
-            partes.append(atual)
-            atual = ""
-        atual += ("\n\n" if atual else "") + ln[:max_chars]
+        for pd in pedacos(ln, max_chars):
+            if atual and len(atual) + len(SEP) + len(pd) > max_chars:
+                partes.append(atual)
+                atual = ""
+            atual += (SEP if atual else "") + pd
     if atual:
         partes.append(atual)
     arqs = []
@@ -351,37 +407,37 @@ def fontes_transcritos(a, tz, desde, st):
     ini = dt.datetime.combine(desde, dt.time.min)
     ini = ini.replace(tzinfo=tz) if tz else ini.astimezone()
     corte_novo, corte_cursor = ini.timestamp(), (ini - dt.timedelta(days=JANELA_CURSOR)).timestamp()
-    app_bases, mapa = bases_app(a.app_dir), None
-    conta_env = (os.environ.get("CLAUDE_CODE_ACCOUNT_UUID", ""), os.environ.get("CLAUDE_CODE_ORGANIZATION_UUID", ""))
+    app_bases = [b for b in bases_app(a.app_dir) if os.path.isdir(b)]
+    mapa = mapa_app_por_cli(app_bases) if app_bases else {}
+    conta = conta_atual(app_bases, a.sessao, mapa) if mapa else (None, None)
     for f in sorted(glob.glob(os.path.join(raiz, "*", "*.jsonl"))):
         uid = os.path.splitext(os.path.basename(f))[0]
         if uid == atual or not re.fullmatch(r"[A-Za-z0-9_-]+", uid):
             continue
+        mid = f"cli:{uid}"
+        meta = {"id": mid, "alias": None, "titulo": "", "cwd": "", "branch": None, "arquivada": False, "ultima": None,
+                "link": None, "retomar": f"claude --resume {uid}", "backend": "transcritos"}
+        s = mapa.get(uid)
+        if s:  # o app conhece esta conversa: mesmo id e link que os cards já usam (resolvido antes de qualquer corte)
+            if s["id"] == a.sessao or (s["arquivada"] and not a.incluir_arquivadas):
+                continue
+            if None in conta or tuple(s["conta"]) != tuple(conta):
+                continue  # conta/org do app não confirmada igual à atual: não vaza para este quadro (falha fechada)
+            meta.update(id=s["id"], alias=mid, titulo=s["titulo"], arquivada=s["arquivada"], link=link_app(s["id"]),
+                        retomar=None)
+        tem_cursor = meta["id"] in st or mid in st
         try:
             mt = os.path.getmtime(f)
         except OSError:
             continue
-        mid = f"cli:{uid}"
-        if mt < (corte_cursor if mid in st else corte_novo):
+        if mt < (corte_cursor if tem_cursor else corte_novo):
             continue  # nada mexeu nele no período: nem abre
         registros = ler_jsonl(f)
         m = meta_transcrito(registros, tz)
         if m["sdk"] and not a.incluir_sdk:
             continue
-        meta = {"id": mid, "titulo": m["titulo"], "cwd": m["cwd"], "branch": m["branch"], "arquivada": False,
-                "ultima": m["ultima"], "link": None, "retomar": f"claude --resume {uid}", "backend": "transcritos"}
-        if m["app"] and app_bases:
-            if mapa is None:
-                mapa = mapa_app_por_cli(app_bases)
-            s = mapa.get(uid)
-            if s:  # aberta pelo app: mesmo id e link que os cards já usam
-                if s["id"] == a.sessao or (s["arquivada"] and not a.incluir_arquivadas):
-                    continue
-                if any(x and x != y for x, y in zip(conta_env, s["conta"])):
-                    continue  # conversa do app em outra conta/org (o app guarda <conta>/<org>): não vaza para este quadro
-                meta.update(id=s["id"], titulo=s["titulo"] or meta["titulo"], arquivada=s["arquivada"],
-                            link=link_app(s["id"]), retomar=None)
-        if meta["id"] not in st and (meta["ultima"] is None or meta["ultima"].date() < desde):
+        meta.update(titulo=meta["titulo"] or m["titulo"], cwd=m["cwd"], branch=m["branch"], ultima=m["ultima"])
+        if not tem_cursor and (meta["ultima"] is None or meta["ultima"].date() < desde):
             continue  # primeira leitura só para quem teve atividade a partir de --desde
         yield meta, registros
 
@@ -414,14 +470,15 @@ def extrair(a):
     fontes = fontes_app(a, ctx, tz) if backend == "app" else fontes_transcritos(a, tz, desde, st)
     man = []
     for meta, registros in fontes:
-        cursor = st.get(meta["id"])
+        chave = meta["id"] if meta["id"] in st or not meta.get("alias") else meta["alias"]
+        cursor = st.get(chave)  # cursor antigo gravado como cli:<uuid> vale para o local_… da mesma conversa
         linhas, ultimo, perdido, rotina = trecho(registros, cursor, desde, tz)
         if not linhas:
             continue
         arqs, chars = gravar_partes(a.saida, re.sub(r"[^A-Za-z0-9_-]", "-", meta["id"]), linhas, a.max_chars)
         man.append({"id": meta["id"], "titulo": meta["titulo"], "cwd": meta["cwd"], "branch": meta["branch"],
                     "arquivada": meta["arquivada"], "ultima_atividade": _local_ingenuo(meta["ultima"]),
-                    "rotina": rotina, "arquivos": arqs, "cursor_perdido": perdido, "primeira_leitura": meta["id"] not in st,
+                    "rotina": rotina, "arquivos": arqs, "cursor_perdido": perdido, "primeira_leitura": chave not in st,
                     "chars": chars, "cursor_novo": ultimo, "link": meta["link"], "retomar": meta["retomar"],
                     "backend": meta["backend"]})
     man.sort(key=lambda x: x["ultima_atividade"], reverse=True)
@@ -440,21 +497,29 @@ def extrair(a):
 
 
 def confirmar(a):
-    st = ler_estado(a)
     ids = set(x.strip() for x in a.ids.split(",") if x.strip()) if a.ids else None
     with open(a.manifesto, encoding="utf-8") as f:
         manifesto = json.load(f)
-    for m in manifesto:
-        if ids is not None and m["id"] not in ids:
-            continue
-        if m.get("cursor_novo"):
-            st[m["id"]] = m["cursor_novo"]
     p = estado_novo(a)
     os.makedirs(os.path.dirname(p), exist_ok=True)
-    tmp = p + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(st, f, indent=1)
-    os.replace(tmp, p)
+    with caminhos.trava(p + ".lock"):  # ler → juntar → gravar sem atropelar outro confirmar do mesmo quadro
+        st = ler_estado(a)
+        for m in manifesto:
+            if ids is not None and m["id"] not in ids:
+                continue
+            if m.get("cursor_novo"):
+                st[m["id"]] = m["cursor_novo"]
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(p), prefix=".cursores-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(st, f, indent=1)
+            os.replace(tmp, p)
+        except BaseException:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise
     print(f"cursores: {len(st)}")
 
 
@@ -463,6 +528,13 @@ def slug_id(v):
     if not re.fullmatch(r"[A-Za-z0-9_-]{6,64}", v):
         raise argparse.ArgumentTypeError("quadro: id ou URL do artefato")
     return v
+
+
+def _max_chars(v):
+    n = int(v)
+    if n < 200:
+        raise argparse.ArgumentTypeError("--max-chars: pelo menos 200 / at least 200")
+    return n
 
 
 def sessao_padrao():
@@ -482,7 +554,7 @@ def main(argv=None):
     e.add_argument("--backend", choices=["auto", "app", "transcritos"], default="auto")
     e.add_argument("--fuso", help="IANA do quadro (config/preferencias.fuso); padrão: o do sistema")
     e.add_argument("--app-dir", help="pasta do app ou a claude-code-sessions dele (padrão: a do app desta sessão)")
-    e.add_argument("--desde"); e.add_argument("--max-chars", type=int, default=14000)
+    e.add_argument("--desde"); e.add_argument("--max-chars", type=_max_chars, default=14000)
     e.add_argument("--incluir-arquivadas", action="store_true")
     e.add_argument("--incluir-sdk", action="store_true", help="transcritos: incluir sessões headless/SDK (claude -p)")
     c = sp.add_parser("confirmar"); c.add_argument("--quadro", type=slug_id); c.add_argument("--manifesto", required=True)

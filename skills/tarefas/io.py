@@ -4,13 +4,16 @@
 Roda com `sh <skills>/tarefas/py io.py …`. `--idioma` (padrão pt-BR; pt* = português, outro = inglês) define a
 língua dos textos gerados: Markdown do export, prévia do plan e linhas de histórico do import.
 
-export: junta os documentos baixados com `ArtifactData list ... out_dir=<dir>` num pacote.
+export: junta os documentos baixados com `ArtifactData list ... out_dir=<dir>` num pacote (tasks, dias, arquivo,
+  config e recorrentes).
   io.py export --dir <out_dir> --escopo <escopo> --out pacote.json [--csv x.csv] [--md x.md] [--idioma en]
 
 plan: compara um pacote (ou uma lista de tarefas vinda de outro sistema, já no formato v1)
   com o índice atual e gera os arquivos de escrita + uma prévia legível.
   io.py plan --entrada pacote.json --indice indice.json --saida <dir> [--com-config] [--idioma en]
   -> <dir>/preview.md, <dir>/writes-N.json (lotes de até 45 escritas, com file_path absolutos)
+  --com-config (só quadro NOVO): também `set` dos docs de dias/arquivo/config/recorrentes do pacote
+  (marcados so_quadro_novo).
 
 Casamento: mesma chave externa (`chaves`) = mesma tarefa (atualiza); senão, mesmo id; senão, nova.
 """
@@ -19,19 +22,20 @@ import argparse, csv, datetime as dt, glob, hashlib, json, os, re, sys, unicoded
 IDIOMA = "pt-BR"  # o --idioma da linha de comando (main)
 NOW = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 CAMPOS = ["titulo", "status", "resolucao", "prioridade", "area", "projeto", "projetos", "tags", "chaves", "pai", "relacionadas",
-          "prazo", "proximo_passo", "contexto", "resumo", "links", "conversas", "historico", "fonte", "auto",
+          "prazo", "proximo_passo", "contexto", "resumo", "links", "conversas", "historico", "fonte", "auto", "recorrente",
           "criado_em", "atualizado_em", "concluido_em"]
+COLECOES_CONFIG = ["dias", "arquivo", "config", "recorrentes"]  # vão no pacote; no plan, só com --com-config (quadro novo)
 STATUS = {"entrada", "a_fazer", "fazendo", "esperando", "feito"}
 
 TXT = {
     "pt": {"md_titulo": "# Quadro {escopo} — exportado em {data}", "sem_projeto": "Sem projeto", "prazo": "prazo {d}",
            "status": {"entrada": "Entrada", "a_fazer": "A fazer", "fazendo": "Fazendo", "esperando": "Esperando", "feito": "Feito"},
            "importada": "Importada", "atualizada": "Atualizada por import",
-           "prev_titulo": "# Prévia do import ({novas} novas, {atualizadas} atualizadas, {extras} docs de dias/arquivo/config, {conflitos} conflitos)",
+           "prev_titulo": "# Prévia do import ({novas} novas, {atualizadas} atualizadas, {extras} docs de dias/arquivo/config/recorrentes, {conflitos} conflitos)",
            "prev_novas": "## Novas",
            "prev_atualizadas": "## Atualizadas (mesma chave; só título/status/prazo/prioridade/projeto/próximo passo, arrays unidos)",
            "prev_conflitos": "## Conflitos (não entram)",
-           "prev_extras": "⚠️ Os docs de dias/arquivo/config SUBSTITUEM os existentes: use só em quadro novo.",
+           "prev_extras": "⚠️ Os docs de dias/arquivo/config/recorrentes SUBSTITUEM os existentes: use só em quadro novo.",
            "prev_indice": "Índice: `update` em indice/ativos com {p} (merge por id).",
            "conf_chave": "`{t}`: chave {k} repetida no arquivo (fica só a primeira)",
            "conf_mesma": "`{t}` e `{o}` casam com a mesma tarefa `{a}` (fica só a primeira)",
@@ -39,11 +43,11 @@ TXT = {
     "en": {"md_titulo": "# Board {escopo} — exported on {data}", "sem_projeto": "No project", "prazo": "due {d}",
            "status": {"entrada": "Inbox", "a_fazer": "To do", "fazendo": "Doing", "esperando": "Waiting", "feito": "Done"},
            "importada": "Imported", "atualizada": "Updated by import",
-           "prev_titulo": "# Import preview ({novas} new, {atualizadas} updated, {extras} days/archive/config docs, {conflitos} conflicts)",
+           "prev_titulo": "# Import preview ({novas} new, {atualizadas} updated, {extras} days/archive/config/recurring docs, {conflitos} conflicts)",
            "prev_novas": "## New",
            "prev_atualizadas": "## Updated (same key; only title/status/due/priority/project/next step, arrays merged)",
            "prev_conflitos": "## Conflicts (not imported)",
-           "prev_extras": "⚠️ The days/archive/config docs REPLACE the existing ones: use only on a new board.",
+           "prev_extras": "⚠️ The days/archive/config/recurring docs REPLACE the existing ones: use only on a new board.",
            "prev_indice": "Index: `update` indice/ativos with {p} (merge by id).",
            "conf_chave": "`{t}`: key {k} repeated in the file (only the first one is kept)",
            "conf_mesma": "`{t}` and `{o}` match the same task `{a}` (only the first one is kept)",
@@ -55,18 +59,21 @@ def txt(idioma):
     return TXT["pt" if str(idioma or "pt-BR").lower().startswith("pt") else "en"]
 
 
+def sem_marcas(s):
+    """NFD e sem nenhuma marca combinante (categorias Mn, Mc e Me), igual ao `.replace(/\\p{M}/gu, "")` da página."""
+    return "".join(c for c in unicodedata.normalize("NFD", str(s or "")) if not unicodedata.category(c).startswith("M"))
+
+
 def slug(s):
-    s = unicodedata.normalize("NFD", str(s or ""))
-    s = "".join(c for c in s if unicodedata.category(c) != "Mn").lower()
+    s = sem_marcas(s).lower()
     return re.sub(r"[^a-z0-9:#@.]+", "-", s).strip("-")
 
 
 def slug_projeto(s):
     """Slug de projeto/tag, igual ao `slug()` da página do quadro (SCHEMA § Slugs): NFD, sem marcas combinantes,
     minúsculas, e tudo que não é letra ou número de qualquer escrita (\\p{L}, \\p{N}) nem `:` vira `-`.
-    `Gestão` → `gestao`; `项目` → `项目`; `Проект` → `проект`."""
-    s = unicodedata.normalize("NFD", str(s or ""))
-    s = "".join(c for c in s if unicodedata.category(c) != "Mn").lower().strip()
+    `Gestão` → `gestao`; `项目` → `项目`; `Проект` → `проект`; `कागज` → `कगज` (marcas Mc também saem, como na página)."""
+    s = sem_marcas(s).lower().strip()
     s = "".join(c if c == ":" or unicodedata.category(c)[0] in "LN" else "-" for c in s)
     return re.sub(r"-+", "-", s).strip("-")
 
@@ -133,8 +140,9 @@ def normaliza(t, nomes=None):
 
 def cmd_export(a):
     pacote = {"formato": "quadro-tarefas", "versao": 1, "escopo": a.escopo, "exportado_em": NOW,
-              "tasks": load_dir(a.dir, "tasks"), "dias": load_dir(a.dir, "dias"),
-              "arquivo": load_dir(a.dir, "arquivo"), "config": load_dir(a.dir, "config")}
+              "tasks": load_dir(a.dir, "tasks")}
+    for col in COLECOES_CONFIG:
+        pacote[col] = load_dir(a.dir, col)
     json.dump(pacote, open(a.out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     nomes = {slug_projeto(t["projeto"]): t["projeto"] for t in pacote["tasks"].values() if t.get("projeto")}
     projs = {i: normaliza(t, nomes)["projetos"] for i, t in pacote["tasks"].items()}  # card v2: recupera os das tags
@@ -163,7 +171,7 @@ def cmd_export(a):
             linhas.append(f"- [{x}] **{t.get('titulo')}** ({extra})" + (f"\n  - → {t['proximo_passo']}" if t.get("proximo_passo") else ""))
         open(a.md, "w", encoding="utf-8").write("\n".join(linhas) + "\n")
     print(json.dumps({"tasks": len(pacote["tasks"]), "dias": len(pacote["dias"]), "arquivo": len(pacote["arquivo"]),
-                      "out": a.out, "csv": a.csv, "md": a.md}, ensure_ascii=False))
+                      "recorrentes": len(pacote["recorrentes"]), "out": a.out, "csv": a.csv, "md": a.md}, ensure_ascii=False))
 
 
 ID_OK = re.compile(r"^[A-Za-z0-9_~:@+-][A-Za-z0-9_.~:@+-]{0,119}$")
@@ -270,7 +278,7 @@ def cmd_plan(a):
     extras = []
     if a.com_config and isinstance(ent, dict):
         # Só para quadro NOVO (quadro-tarefas). Em quadro existente, cada doc precisa do if_version lido.
-        for col in ["dias", "arquivo", "config"]:
+        for col in COLECOES_CONFIG:
             for did, d in (ent.get(col) or {}).items():
                 p = dentro(docs, f"_{col}-{id_seguro(did, col)}.json")
                 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False)

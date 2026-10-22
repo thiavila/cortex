@@ -14,15 +14,29 @@ Importável (`import caminhos`) e de linha de comando:
                     `:` no macOS/Linux, `;` no Windows) substitui essa lista: só as que existirem, e nada mais.
 - so()              darwin | windows | linux (env CORTEX_SO força um deles, para testes).
 - pastas_app()      pastas do app desktop do Claude que têm `claude-code-sessions` (a do app desta sessão primeiro).
-- fuso(nome) / agora(tz) / no_fuso(iso, tz): datas no fuso IANA do quadro; sem zoneinfo (3.8) ou sem a base de
-                    fusos (Windows sem o pacote tzdata) cai na hora local do sistema, com aviso no stderr.
+- fuso(nome) / agora(tz) / no_fuso(iso, tz): datas no fuso IANA do quadro. Sem nome = hora local do sistema. Nome
+                    pedido que não carrega (Python 3.8 sem zoneinfo, Windows sem o pacote tzdata, nome errado) é erro:
+                    uma linha no stderr e ErroFuso (um SystemExit com código 3), a não ser que seja o próprio fuso do
+                    sistema (aí vale a hora local). Nunca troca em silêncio para o fuso do sistema.
+- trava(caminho)    trava exclusiva entre processos (fcntl, msvcrt ou arquivo O_EXCL), a mesma de quadros.py.
 """
+import contextlib
 import datetime as dt
 import glob
 import json
 import os
 import re
 import sys
+import time
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
+try:
+    import msvcrt
+except ImportError:  # macOS/Linux
+    msvcrt = None
 
 LEGADO = "~/.claude"  # onde o Cortex guardava tudo até a v0.2
 
@@ -111,12 +125,35 @@ def pastas_app():
 
 # --- fuso -------------------------------------------------------------------------------------------------------
 
-def _aviso(msg):
-    print(msg, file=sys.stderr)
+class ErroFuso(SystemExit):
+    """O fuso pedido não carrega. É um SystemExit com código 3: script que não trata sai com 3 (a linha do erro já
+    foi para o stderr). Quem quiser tratar pega ErroFuso (`except Exception` não pega, de propósito)."""
+
+    def __init__(self, nome, motivo):
+        self.nome, self.motivo = nome, motivo
+        self.mensagem = (f"erro: o fuso {nome} não carregou ({motivo}); instale o tzdata (`python -m pip install tzdata`) "
+                         f"ou omita --fuso para usar o fuso do sistema / error: time zone {nome} could not be loaded; "
+                         f"install tzdata (`python -m pip install tzdata`) or omit --fuso to use the system time zone")
+        super().__init__(3)
+
+    def __str__(self):
+        return self.mensagem
+
+
+def nome_fuso_sistema():
+    """Nome IANA do fuso do sistema, quando dá para saber (o mesmo palpite de sistema.py); senão None."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import sistema  # noqa: E402  (importa caminhos de volta: ok, este módulo já está carregado)
+        return sistema.fuso()[0]
+    except Exception:
+        tz = (os.environ.get("TZ") or "").lstrip(":").strip()
+        return tz or None
 
 
 def fuso(nome=None):
-    """tzinfo do fuso IANA `nome`. Vazio → None (= hora local do sistema). Sem zoneinfo/tzdata → None com aviso."""
+    """tzinfo do fuso IANA `nome`. Vazio → None (= hora local do sistema). Nome que não carrega → ErroFuso,
+    salvo quando é o próprio fuso do sistema (aí None, a hora local já é ele)."""
     if not nome:
         return None
     if nome.upper() in ("UTC", "ETC/UTC", "Z"):
@@ -124,15 +161,18 @@ def fuso(nome=None):
     try:
         from zoneinfo import ZoneInfo  # Python 3.9+
     except ImportError:
-        _aviso(f"aviso: Python sem zoneinfo; usando a hora local do sistema no lugar de {nome} "
-               f"(warning: no zoneinfo, using system local time instead of {nome})")
-        return None
-    try:
-        return ZoneInfo(nome)
-    except Exception:
-        _aviso(f"aviso: fuso {nome} indisponível (no Windows, instale o pacote tzdata); usando a hora local "
-               f"(warning: time zone {nome} unavailable, using system local time)")
-        return None
+        ZoneInfo, motivo = None, "Python sem zoneinfo / no zoneinfo"
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo(nome)
+        except Exception as e:  # ZoneInfoNotFoundError, ValueError (nome inválido)
+            motivo = f"{type(e).__name__}"
+    sis = nome_fuso_sistema()
+    if sis and sis.lower() == nome.lower():
+        return None  # é o fuso do sistema: a hora local do sistema dá o mesmo resultado
+    erro = ErroFuso(nome, motivo)
+    print(erro.mensagem, file=sys.stderr)
+    raise erro
 
 
 def agora(tz=None):
@@ -163,6 +203,71 @@ def no_fuso(iso, tz=None):
     except ValueError:
         return None
     return d.astimezone(tz) if tz else d.astimezone()
+
+
+# --- trava entre processos (mesma lógica de quadros.trava) --------------------------------------------------------
+
+ESPERA_TRAVA = 15  # segundos esperando a trava antes de desistir
+VELHA_TRAVA = 60   # trava em arquivo (O_EXCL) mais velha que isso = sobra de processo morto
+
+
+@contextlib.contextmanager
+def trava(caminho):
+    """Trava exclusiva entre processos: fcntl (macOS/Linux), msvcrt (Windows), senão arquivo criado com O_EXCL."""
+    if fcntl is not None:
+        with open(caminho, "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+        return
+    if msvcrt is not None:
+        with open(caminho, "a+") as f:
+            f.seek(0)
+            fim = time.time() + ESPERA_TRAVA
+            while True:
+                try:
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.time() > fim:
+                        raise SystemExit(f"trava ocupada há {ESPERA_TRAVA}s: {caminho}")
+                    time.sleep(0.05)
+            try:
+                yield
+            finally:
+                f.seek(0)
+                try:
+                    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+                except OSError:
+                    pass
+        return
+    excl = caminho + ".excl"
+    fim = time.time() + ESPERA_TRAVA
+    while True:
+        try:
+            fd = os.open(excl, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(excl) > VELHA_TRAVA:
+                    os.remove(excl)  # sobra de um processo que morreu segurando a trava
+                    continue
+            except OSError:
+                continue
+            if time.time() > fim:
+                raise SystemExit(f"trava ocupada há {ESPERA_TRAVA}s: {excl}")
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        try:
+            os.remove(excl)
+        except OSError:
+            pass
 
 
 def tudo():

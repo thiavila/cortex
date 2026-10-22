@@ -273,7 +273,7 @@ function t(key, vars) {
 const sysTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; } };
 function okLocale(l) { if (!l) return null; try { new Intl.DateTimeFormat(String(l)); return String(l); } catch (e) { return null; } }
 function okTz(z) { if (!z) return null; try { new Intl.DateTimeFormat("en-US", { timeZone: String(z) }); return String(z); } catch (e) { return null; } }
-let LOCALE = "en-US", FUSO = "UTC", SEMANA = 1, MES_PRIMEIRO = false, F = {};
+let LOCALE = "en-US", FUSO = "UTC", SEMANA = 1, MES_PRIMEIRO = false, ANO_PRIMEIRO = false, SEP_DATA = "/", F = {};
 function semanaDe(p) {
   if (+p.semana_inicia === 1 || +p.semana_inicia === 7) return +p.semana_inicia;
   try {
@@ -298,7 +298,15 @@ function setLocale(p) {
     dmyhm: dtf({ timeZone: FUSO, day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }),
     dow: dtf({ timeZone: "UTC", weekday: "short" }),
   };
-  try { const ps = dtf({}).formatToParts(new Date(Date.UTC(2026, 9, 15, 12))).map(x => x.type); MES_PRIMEIRO = ps.indexOf("month") < ps.indexOf("day"); } catch (e) { MES_PRIMEIRO = false; }
+  // Ordem e separador da data numérica do locale (15/10/2026, 10/15/2026, 15.10.2026, 2026/10/15, 2026. 10. 15.…):
+  // o campo rápido entende ^dia-mês na mesma ordem, com ".", "/" ou "-".
+  try {
+    const ps = dtf({ timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(Date.UTC(2026, 9, 15, 12)));
+    const ord = ps.map(x => x.type).filter(x => x === "year" || x === "month" || x === "day");
+    MES_PRIMEIRO = ord.indexOf("month") < ord.indexOf("day"); ANO_PRIMEIRO = ord[0] === "year";
+    const lit = (ps.find(x => x.type === "literal") || {}).value || "/"; const sep = lit.replace(/[\s\u200e\u200f]/g, "").charAt(0);
+    SEP_DATA = "./-".includes(sep) && sep ? sep : "/";
+  } catch (e) { MES_PRIMEIRO = false; ANO_PRIMEIRO = false; SEP_DATA = "/"; }
   document.documentElement.lang = LANG;
 }
 setLocale();
@@ -315,7 +323,7 @@ const DIA = 86400000;
 const HIST_MAX = 50;
 
 let db = null, canWrite = true, prefsLoaded = false;
-let tasks = [], hoje = null, loaded = false;
+let tasks = [], hoje = null, hojeKey = null, loaded = false; // hoje = o diário dias/<hojeKey> que está na tela
 const ui = { view: "quadro", q: "", projeto: "", tag: "", area: "", openId: null, confirmDel: false, showRec: true, recEdit: null };
 try { Object.assign(ui, JSON.parse(localStorage.getItem("tarefas-ui") || "{}"), { openId: null, confirmDel: false, q: "", recEdit: null }); } catch (e) {}
 function persistUi() { try { localStorage.setItem("tarefas-ui", JSON.stringify({ view: ui.view, projeto: ui.projeto, tag: ui.tag, area: ui.area, showRec: ui.showRec })); } catch (e) {} }
@@ -452,18 +460,26 @@ function setStatus(id, status, resolucao) {
 // ===== Campo rápido =====
 const PRIO_ALIAS = { alta: "alta", high: "alta", "média": "media", media: "media", medium: "media", med: "media", baixa: "baixa", low: "baixa" };
 function dataValida(y, m, d) { y = +y; m = +m; d = +d; if (m < 1 || m > 12 || d < 1 || d > 31) return null; const dt = new Date(Date.UTC(y, m - 1, d)); return dt.getUTCMonth() === m - 1 ? String(y).padStart(4, "0") + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0") : null; }
+// ^data do campo rápido, na ordem do locale e com ".", "/" ou "-": ^22/10 (pt-BR), ^10/22 (en-US), ^22.10.2026 (de-DE),
+// ^2026/10/22 (ja-JP). Ano de 4 dígitos na frente = sempre ano-mês-dia (inclui o ISO ^2026-10-22). Sem ano = este ano.
+function dataRapida(a, b, c) {
+  const ano = s => (s.length === 4 ? s : s.length === 2 ? "20" + s : null);
+  let y, mo, d;
+  if (c == null) { if (a.length > 2) return null; [mo, d] = MES_PRIMEIRO ? [a, b] : [b, a]; y = todayStr().slice(0, 4); }
+  else if (a.length === 4) { y = a; mo = b; d = c; }
+  else if (a.length > 2) return null;
+  else if (c.length === 4 || !ANO_PRIMEIRO) { y = ano(c); [mo, d] = MES_PRIMEIRO ? [a, b] : [b, a]; }
+  else { y = ano(a); mo = b; d = c; } // ano curto na frente (ja-JP: ^26/10/22)
+  return y ? dataValida(y, mo, d) : null;
+}
 function parseQuick(text) {
   const p = { projetos: [], prioridade: "media", area: areaPadrao(), prazo: null, tags: [] };
   let titulo = text.replace(/#([\p{L}\p{N}_.-]+)/gu, (_, x) => { p.projetos.push(x); return ""; })
     .replace(/!(alta|média|media|medium|med|baixa|high|low)\b/giu, (_, x) => { p.prioridade = PRIO_ALIAS[x.toLowerCase()] || "media"; return ""; })
     .replace(/@([\p{L}\p{N}_-]+)/gu, (m, a) => { const k = a.toLowerCase(); if (ESCOPO.areas.some(x => x.id === k)) { p.area = k; } else { p.tags.push("pessoa:" + slug(a)); } return ""; })
     .replace(/\+([\p{L}\p{N}_:-]+)/gu, (_, g) => { const n = normTag(g); if (n) p.tags.push(n); return ""; })
-    .replace(/\^(\d{4})-(\d{1,2})-(\d{1,2})(?![\d/-])/g, (m, y, mo, d) => { const v = dataValida(y, mo, d); if (!v) return m; p.prazo = v; return ""; })
-    .replace(/\^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g, (m, a, b, y) => {
-      // D/M ou M/D conforme a ordem do locale (en-US: ^10/15 = 15 de outubro)
-      const [mo, d] = MES_PRIMEIRO ? [a, b] : [b, a];
-      const yy = y ? (y.length === 2 ? "20" + y : y) : todayStr().slice(0, 4);
-      const v = dataValida(yy, mo, d); if (!v) return m; p.prazo = v; return "";
+    .replace(/\^(\d{1,4})([./-])(\d{1,2})(?:\2(\d{1,4}))?(\.?)(?!\d|[./-]\d)/g, (m, a, sep, b, c, ponto) => {
+      const v = dataRapida(a, b, c); if (!v) return m; p.prazo = v; return sep === "." ? "" : ponto;
     }).replace(/\s+/g, " ").trim();
   p.projetos = projList(p.projetos); p.projeto = p.projetos[0] || "";
   p.tags = syncProjetoTag([...new Set(p.tags)], p.projetos);
@@ -650,7 +666,7 @@ function renderHint() {
   const areas = ESCOPO.areas.length > 1 ? t("hint.areas", { areas: ESCOPO.areas.map(a => code("@" + a.id)).join(", ") }) : "";
   $("#quickHint").innerHTML = t("hint", {
     proj: code("#" + (ESCOPO.exemploProjeto || t("hint.projEx"))), tag: code("+" + t("hint.tagEx")), pessoa: code("@" + t("hint.pessoaEx")), areas,
-    prio: code("!" + t("pr.alta")), prazo: code("^" + (MES_PRIMEIRO ? "10/15" : "15/10")), iso: code("^" + t("hint.isoEx")),
+    prio: code("!" + t("pr.alta")), prazo: code("^" + (MES_PRIMEIRO ? ["10", "15"] : ["15", "10"]).join(SEP_DATA)), iso: code("^" + t("hint.isoEx")),
   });
 }
 function renderControls() {
@@ -677,7 +693,7 @@ function renderToday() {
   const plano = (bd.plano || []).map((p, i) => `<li class="${p.feito ? "done" : ""}"><input type="checkbox" id="plano-${i}" data-plano="${i}" ${p.feito ? "checked" : ""} ${!db || !canWrite ? "disabled" : ""}>
     <span>${p.tarefa && byId(p.tarefa) ? `<span class="linkt" data-open="${esc(p.tarefa)}">${esc(p.texto)}</span>` : esc(p.texto)}</span></li>`).join("");
   const reun = (bd.reunioes || []).map(r => `<li><span class="hora">${esc(r.hora || "")}</span><span>${esc(r.titulo)}${(r.tarefas || []).filter(byId).map(id => ` · <span class="linkt" data-open="${esc(id)}">${esc(byId(id).titulo)}</span>`).join("")}</span></li>`).join("");
-  el.innerHTML = `<div><h2>${esc(t("today.plano", { d: fmtData(todayStr()) }))}</h2><ul>${plano || `<li><span class="hint">${esc(t("today.semPlano"))}</span></li>`}</ul></div>
+  el.innerHTML = `<div><h2>${esc(t("today.plano", { d: fmtData(hojeKey || todayStr()) }))}</h2><ul>${plano || `<li><span class="hint">${esc(t("today.semPlano"))}</span></li>`}</ul></div>
     <div><h2>${esc(t("today.reunioes"))}</h2><ul>${reun || `<li><span class="hint">${esc(t("today.semReun"))}</span></li>`}</ul></div>`;
 }
 function renderSummary() {
@@ -951,10 +967,13 @@ $("#main").addEventListener("click", e => { if (ui.view === "recorrentes") retur
 $("#main").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !e.target.closest("a, [data-resume]")) { const el = e.target.closest("[data-id]"); if (el && e.target === el) { e.preventDefault(); openTask(el.dataset.id); } } });
 $("#today").addEventListener("click", e => { const o = e.target.closest("[data-open]"); if (o) openTask(o.dataset.open); });
 $("#today").addEventListener("change", e => {
-  const i = e.target.dataset.plano; if (i == null || !db || !hoje) return;
+  const i = e.target.dataset.plano; if (i == null || !db || !hoje || !hojeKey) return;
+  // grava no diário que está na tela (dias/<hojeKey>), mesmo que a meia-noite já tenha passado; depois confere o dia
+  const key = hojeKey;
   const plano = (hoje.bom_dia.plano || []).map((p, k) => k === +i ? Object.assign({}, p, { feito: e.target.checked }) : p);
   hoje = Object.assign({}, hoje, { bom_dia: Object.assign({}, hoje.bom_dia, { plano }) }); renderToday();
-  queue("dia", () => db.doc("dias/" + todayStr()).update({ bom_dia: { plano } }));
+  queue("dia:" + key, () => db.doc("dias/" + key).update({ bom_dia: { plano } }));
+  subDia();
 });
 
 let dragId = null;
@@ -1023,13 +1042,17 @@ document.addEventListener("keydown", e => {
 });
 
 // ===== Boot =====
-// O diário do dia (dias/<hoje>) depende do fuso: assina de novo se as preferências mudarem o "hoje".
-let diaKey = null, diaUnsub = null;
+// O diário do dia (dias/<hoje>) depende do fuso e do relógio: assina de novo quando as preferências mudam o "hoje"
+// e quando o dia vira com a página aberta (conferido a cada minuto e ao voltar para a aba).
+let diaUnsub = null;
 function subDia() {
-  const k = todayStr(); if (!db || k === diaKey) return;
-  diaKey = k; try { if (typeof diaUnsub === "function") diaUnsub(); } catch (e) {}
-  diaUnsub = db.doc("dias/" + k).onSnapshot(s => { hoje = s.exists ? s.data() : null; renderToday(); }, () => {});
+  const k = todayStr(); if (!db || k === hojeKey) return;
+  try { if (typeof diaUnsub === "function") diaUnsub(); } catch (e) {}
+  hojeKey = k; hoje = null; renderToday(); // o plano de ontem sai da tela até o de hoje chegar
+  diaUnsub = db.doc("dias/" + k).onSnapshot(s => { if (k !== hojeKey) return; hoje = s.exists ? s.data() : null; renderToday(); }, () => {});
 }
+setInterval(subDia, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) subDia(); });
 render();
 (async () => {
   try { db = window.claude ? await window.claude.use("db") : null; } catch (e) { db = null; }

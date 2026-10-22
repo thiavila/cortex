@@ -26,19 +26,46 @@ FUNCOES_OK = {"rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch
               "clamp", "min", "max", "color", "linear-gradient", "radial-gradient", "not", "is", "where"}
 
 
+def codigo_css(css, recusa):
+    """O CSS sem o conteúdo de textos entre aspas (viram "") e sem comentários (somem), lido como o navegador lê:
+    aspas só abrem fora de comentário, comentário só abre fora de aspas. Texto entre aspas não pode ter quebra de
+    linha nem ficar aberto; comentário também tem que fechar. (Barra invertida já foi recusada antes.)"""
+    out, i, n = [], 0, len(css)
+    while i < n:
+        c = css[i]
+        if c in "\"'":
+            j = i + 1
+            while j < n and css[j] != c:
+                if css[j] in "\r\n\f":
+                    recusa("texto entre aspas com quebra de linha")
+                j += 1
+            if j >= n:
+                recusa("texto entre aspas sem fechar")
+            out.append('""')
+            i = j + 1
+        elif css.startswith("/*", i):
+            j = css.find("*/", i + 2)
+            if j < 0:
+                recusa("comentário sem fechar")
+            i = j + 2  # some sem deixar espaço: url/**/( vira url( e é recusado
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 def tema_css(caminho):
     """Lê o CSS do tema e recusa o que carregaria algo de fora ou quebraria a página."""
-    css = open(caminho, encoding="utf-8").read().strip()
+    with open(caminho, encoding="utf-8") as f:
+        css = f.read().strip()
     css = re.sub(r"^\s*<style[^>]*>|</style>\s*$", "", css).strip()  # aceita com ou sem <style>
     recusa = lambda motivo: sys.exit(f"tema recusado: {motivo} (o tema só sobrescreve tokens; fontes só por --fontes)")
     if "\\" in css:
         recusa("barra invertida (escape de CSS) não é permitida")
     if re.search(r"<|javascript:|expression", css, re.I):
         recusa("tag HTML, javascript: ou expression")
-    # Comentários somem (url/**/( vira url( e é recusado) e textos entre aspas não contam como função.
-    limpo = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-    limpo = re.sub(r'"[^"\n]*"|\'[^\'\n]*\'', '""', limpo)
-    for regra in re.findall(r"@([a-z-]+)", limpo, re.I):
+    limpo = codigo_css(css, recusa)  # at-rules e funções só contam no código, fora de aspas e comentários
+    for regra in re.findall(r"@([\w-]*)", limpo):
         if regra.lower() != "media":
             recusa(f"@{regra} não é permitido (só @media)")
     for arroba, fn in re.findall(r"(@?)([\w-]+)\(", limpo):  # no CSS, função = nome colado no "("
@@ -57,7 +84,9 @@ def main():
     a = ap.parse_args()
     if a.sem_fontes_externas and a.fontes:
         ap.error("--sem-fontes-externas não combina com --fontes")
-    rd = lambda f: open(os.path.join(HERE, f), encoding="utf-8").read()
+    def rd(nome):
+        with open(os.path.join(HERE, nome), encoding="utf-8") as f:
+            return f.read()
     fontes = "" if a.sem_fontes_externas else FONTES_BASE
     if a.fontes:
         if not a.fontes.startswith(GOOGLE_FONTS) or re.search(r'["<>\s]', a.fontes):
@@ -69,16 +98,18 @@ def main():
     html = html.replace("{{TEMA}}", tema_css(a.tema_arquivo) if a.tema_arquivo else "")
     assert "{{" not in html, "placeholder sobrando"
     js = re.search(r"<script>(.*)</script>", html, re.S).group(1)
-    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
         f.write(js)
     if shutil.which("node"):  # checagem extra, só se houver Node; sem ele o quadro é montado igual
-        r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True)
+        r = subprocess.run(["node", "--check", f.name], capture_output=True, text=True, encoding="utf-8",
+                           errors="replace")
         if r.returncode:
             os.unlink(f.name)
             sys.exit("JS inválido:\n" + r.stderr)
     os.unlink(f.name)
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    open(a.out, "w", encoding="utf-8").write(html)
+    with open(a.out, "w", encoding="utf-8") as f:
+        f.write(html)
     print(a.out)
 
 
