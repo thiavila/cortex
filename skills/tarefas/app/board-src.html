@@ -1,0 +1,748 @@
+<title>{{TITULO}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+{{FONTS}}
+{{CSS_BASE}}
+<style>
+/* ===== v1: tags, ligações, plano do dia ===== */
+.tagchip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: transparent; white-space: nowrap; cursor: pointer; }
+.tagchip:hover, .tagchip.on { border-color: var(--accent); color: var(--fg); background: var(--accent-soft); }
+.tagchip.pessoa::before { content: "@"; opacity: .6; }
+.parent { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.chip.auto { background: transparent; border: 1px dotted var(--muted); }
+.chip.desc { background: var(--surface-2); color: var(--muted); text-decoration: line-through; }
+.today { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px 24px; }
+.today h2 { margin: 0 0 6px; font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+.today ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.today li { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; min-width: 0; }
+.today li span { overflow-wrap: anywhere; min-width: 0; }
+.today li.done span { color: var(--muted); text-decoration: line-through; }
+.today input[type="checkbox"] { margin-top: 3px; accent-color: var(--accent); }
+.today .hora { font-family: var(--f-mono); font-size: 12px; color: var(--muted); min-width: 42px; }
+[hidden] { display: none !important; }
+.linkt, .today .linkt { color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); }
+.rel-list { display: flex; flex-direction: column; gap: 6px; }
+.rel-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.rel-row button.go { border: 0; background: transparent; color: var(--fg); text-align: left; padding: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; cursor: pointer; }
+.rel-row .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; flex: none; }
+.rel-add { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; }
+/* ===== recorrentes ===== */
+.chip.rec { background: var(--info-soft); color: var(--info); }
+.recs { display: flex; flex-direction: column; gap: 12px; }
+.rec-form { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; align-items: end; }
+.rec-form .wide { grid-column: span 2; }
+.rec-form .full { grid-column: 1 / -1; }
+.rec-form h2 { grid-column: 1 / -1; margin: 0; font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+.dows { display: flex; flex-wrap: wrap; gap: 4px; }
+.dows label { font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; cursor: pointer; display: flex; gap: 4px; align-items: center; }
+.rec-row { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.rec-row.off { opacity: .6; }
+.rec-row .t { font-weight: 600; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.rec-row .r { font-size: 12.5px; color: var(--muted); }
+.togglebtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+@media (max-width: 640px) { .today { grid-template-columns: 1fr; } .rel-add { grid-template-columns: 1fr; } .rec-form { grid-template-columns: 1fr 1fr; } }
+</style>
+{{TEMA}}
+
+<div class="wrap">
+  <header class="top">
+    <h1>Tarefas <span id="scopeName"></span><small id="scopeSub"></small></h1>
+    <span class="sync" id="sync"><span class="dot"></span><span id="syncText">Conectando ao banco…</span></span>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+  <section class="today" id="today" hidden aria-label="Hoje"></section>
+  <div class="summary" id="summary" aria-live="polite"></div>
+
+  <form class="quick" id="quickForm" autocomplete="off">
+    <input class="field" id="quickInput" aria-label="Nova tarefa" placeholder="Nova tarefa… (Enter para adicionar na Entrada)">
+    <button class="btn primary" type="submit" id="quickBtn">Adicionar</button>
+  </form>
+  <div class="hint" id="quickHint"></div>
+
+  <div class="toolbar">
+    <div class="grow"><input class="field" id="q" type="search" aria-label="Buscar" placeholder="Buscar em título, tags, próximo passo e contexto"></div>
+    <div style="flex:0 1 190px;min-width:0"><select class="field" id="fProjeto" aria-label="Projeto"><option value="">Todos os projetos</option></select></div>
+    <div style="flex:0 1 190px;min-width:0"><select class="field" id="fTag" aria-label="Tag"><option value="">Todas as tags</option></select></div>
+    <div class="seg" role="group" aria-label="Área" id="fArea"></div>
+    <div class="seg" role="group" aria-label="Visualização" id="fView">
+      <button type="button" data-v="quadro">Quadro</button>
+      <button type="button" data-v="lista">Lista</button>
+      <button type="button" data-v="recorrentes">Recorrentes</button>
+    </div>
+    <button type="button" class="btn togglebtn" id="fRec" title="Mostrar ou esconder os cards gerados pelas tarefas recorrentes">↻ no quadro</button>
+  </div>
+
+  <main id="main"></main>
+</div>
+
+<div id="drawerHost"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// Quadro de tarefas v1. Contrato de dados: <skills>/tarefas/SCHEMA.md
+// O escopo (nome, áreas, prazos de "parada") vem de config/preferencias no banco.
+let ESCOPO = { nome: "", sub: "", areas: [{ id: "geral", nome: "Geral" }], parada_dias: 14, zumbi_dias: 60, exemploProjeto: "Projeto" };
+
+const STATUS = [
+  { id: "entrada", nome: "Entrada" }, { id: "a_fazer", nome: "A fazer" }, { id: "fazendo", nome: "Fazendo" },
+  { id: "esperando", nome: "Esperando" }, { id: "feito", nome: "Feito" },
+];
+const STATUS_NOME = Object.fromEntries(STATUS.map(s => [s.id, s.nome]));
+const stId = s => (s in STATUS_NOME ? s : "entrada");
+const PRIO_ORD = { alta: 0, media: 1, baixa: 2 };
+const DIA = 86400000;
+const HIST_MAX = 50;
+
+let db = null, canWrite = true;
+let tasks = [], hoje = null, loaded = false;
+const ui = { view: "quadro", q: "", projeto: "", tag: "", area: "", openId: null, confirmDel: false, showRec: true, recEdit: null };
+try { Object.assign(ui, JSON.parse(localStorage.getItem("tarefas-ui") || "{}"), { openId: null, confirmDel: false, q: "", recEdit: null }); } catch (e) {}
+function persistUi() { try { localStorage.setItem("tarefas-ui", JSON.stringify({ view: ui.view, projeto: ui.projeto, tag: ui.tag, area: ui.area, showRec: ui.showRec })); } catch (e) {} }
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nowIso = () => new Date().toISOString();
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const areaNome = id => (ESCOPO.areas.find(a => a.id === id) || {}).nome || id;
+const byId = id => tasks.find(t => t.id === id);
+function ddmm(iso) { if (!iso) return ""; const [y, m, d] = iso.slice(0, 10).split("-"); return d + "/" + m + (y !== String(new Date().getFullYear()) ? "/" + y.slice(2) : ""); }
+function ddmmhh(iso) { if (!iso) return ""; const d = new Date(iso); return ddmm(iso.slice(0, 10)) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function daysSince(iso) { return iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / DIA)) : 0; }
+function slug(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9:]+/g, "-").replace(/^-+|-+$/g, ""); }
+function normTag(raw) { let t = slug(raw); if (!t) return ""; if (!t.includes(":")) t = "tema:" + t; const [k, ...v] = t.split(":"); return k + ":" + v.join("-").replace(/^-+/, ""); }
+function tagLabel(t) { const i = t.indexOf(":"); return i < 0 ? t : t.slice(i + 1); }
+function projList(v) { const vistos = new Set(), out = []; (Array.isArray(v) ? v : String(v || "").split(",")).forEach(x => { x = String(x).trim(); const s = slug(x); if (x && s && !vistos.has(s)) { vistos.add(s); out.push(x); } }); return out; }
+function nomeProjeto(s) { const o = tasks.find(x => x.projeto && slug(x.projeto) === s); return o ? o.projeto : s.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "); }
+// v3: lista em `projetos`; card v2 (sem a lista) = `projeto` + os outros que estão só nas tags `projeto:`
+function projetosOf(t) { if (Array.isArray(t.projetos)) { const l = projList(t.projetos); if (l.length) return l; } const base = projList(t.projeto ? [t.projeto] : []); if (Array.isArray(t.projetos)) return base; const extra = (t.tags || []).filter(x => x.startsWith("projeto:")).map(x => x.slice(8)).filter(s => s && !base.some(p => slug(p) === s)).map(nomeProjeto); return projList(base.concat(extra)); }
+function projPatch(lista) { return { projetos: lista, projeto: lista[0] || "" }; }
+function syncProjetoTag(tags, projetos) { const rest = (tags || []).filter(t => !t.startsWith("projeto:")); return [...new Set(projList(projetos).map(p => "projeto:" + slug(p)))].concat(rest); }
+
+function prazoInfo(t) {
+  if (!t.prazo || t.status === "feito") return null;
+  const diff = Math.round((new Date(t.prazo + "T12:00:00") - new Date(todayStr() + "T12:00:00")) / DIA);
+  if (diff < 0) return { cls: "late", txt: "atrasada " + (-diff) + "d" };
+  if (diff === 0) return { cls: "late", txt: "vence hoje" };
+  if (diff <= 3) return { cls: "soon", txt: "vence " + ddmm(t.prazo) };
+  return { cls: "", txt: "prazo " + ddmm(t.prazo) };
+}
+function staleInfo(t) {
+  if (t.status === "feito") return null;
+  const d = daysSince(t.atualizado_em || t.criado_em);
+  if (d >= (ESCOPO.zumbi_dias || 60)) return { cls: "zombie", txt: "parada há " + d + "d" };
+  if (d >= (ESCOPO.parada_dias || 14)) return { cls: "stale", txt: "parada há " + d + "d" };
+  return null;
+}
+function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => el.hidden = true, 2800); }
+function setSync(state, text) { $("#sync").className = "sync " + state; $("#syncText").textContent = text; }
+function banner(msg) { const b = $("#banner"); b.hidden = !msg; b.textContent = msg || ""; }
+
+// ===== Conversas (links claude://) =====
+const convLink = c => c.link || ("claude://claude.ai/epitaxy/" + c.id);
+function mainConv(t) { const cs = t.conversas || []; return cs.find(c => !c.arquivada) || cs[0] || null; }
+function convBtn(c, label) { return `<a class="conv ${c.arquivada ? "arch" : ""}" href="${esc(convLink(c))}" target="_blank" rel="noopener" data-conv="${esc(convLink(c))}" title="${esc(c.titulo || "")}">${label || (c.arquivada ? "Conversa arquivada ↗" : "Abrir conversa ↗")}</a>`; }
+async function copyText(txt) { try { await navigator.clipboard.writeText(txt); toast("Link copiado"); } catch (e) { toast("Não deu para copiar. Selecione o link e copie."); } }
+
+// ===== Escritas: uma por vez por documento =====
+const chains = {};
+function queue(key, fn) {
+  const run = (chains[key] || Promise.resolve()).then(fn).catch(e => {
+    if (e && e.code === "invalid_argument" && canWrite && key !== "indice") { canWrite = false; render(); toast("Sem permissão para editar. A página ficou só leitura."); }
+    else if (e && e.code === "quota_exceeded") toast("O banco está cheio. Arquive ou apague tarefas antigas.");
+    else if (key !== "indice") toast("Não salvou: " + (e && e.message || "erro desconhecido"));
+    else setSync("off", "Índice não atualizou (o boa noite reconcilia)");
+    return false;
+  });
+  chains[key] = run; return run;
+}
+const col = () => db.collection("tasks");
+function indexEntry(t) { return { t: t.titulo, s: t.status, p: projetosOf(t)[0] || "", ps: projetosOf(t), tags: t.tags || [], k: t.chaves || [], pai: t.pai || null, u: t.atualizado_em }; }
+function touchIndex(entries, after) {
+  if (!db) return;
+  const ref = db.doc("indice/ativos");
+  const body = { itens: entries, atualizado_em: nowIso() };
+  queue("indice", async () => {
+    if (after) { const ok = await after; if (ok === false) return; }
+    try { await ref.update(body); }
+    catch (e) { if (e && e.code === "invalid_argument") { const s = await ref.get(); if (!s.exists) await ref.set(body); else throw e; } else throw e; }
+  });
+}
+function patchTask(id, patch, nota) {
+  if (!db || !canWrite) return;
+  const t = byId(id); if (!t) return;
+  const body = Object.assign({}, patch, { atualizado_em: nowIso() });
+  if (nota) body.historico = [{ em: body.atualizado_em, texto: nota, por: "pagina" }, ...(t.historico || [])].slice(0, HIST_MAX);
+  Object.assign(t, body);
+  const w = queue(id, () => col().doc(id).update(body).then(() => true));
+  touchIndex({ [id]: indexEntry(t) }, w);
+  render();
+}
+function setStatus(id, status, resolucao) {
+  const t = byId(id); if (!t) return;
+  const res = status === "feito" ? (resolucao || "concluida") : null;
+  if (t.status === status && (t.resolucao || null) === res) return;
+  const de = t.status === "feito" && t.resolucao === "descartada" ? "Descartada" : STATUS_NOME[t.status];
+  const para = res === "descartada" ? "Descartada" : STATUS_NOME[status];
+  patchTask(id, { status, resolucao: res, concluido_em: status === "feito" ? nowIso() : null }, "Status: " + de + " → " + para);
+}
+function parseQuick(text) {
+  const t = { projetos: [], prioridade: "media", area: ESCOPO.areas[0].id, prazo: null, tags: [] };
+  let titulo = text.replace(/#([\p{L}\p{N}_.-]+)/gu, (_, p) => { t.projetos.push(p); return ""; })
+    .replace(/!(alta|media|média|baixa)\b/giu, (_, p) => { t.prioridade = p.toLowerCase().replace("é", "e"); return ""; })
+    .replace(/@([\p{L}\p{N}_-]+)/gu, (m, a) => { const k = a.toLowerCase(); if (ESCOPO.areas.some(x => x.id === k)) { t.area = k; } else { t.tags.push("pessoa:" + slug(a)); } return ""; })
+    .replace(/\+([\p{L}\p{N}_:-]+)/gu, (_, g) => { const n = normTag(g); if (n) t.tags.push(n); return ""; })
+    .replace(/\^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g, (_, d, m, y) => {
+      const yy = y ? (y.length === 2 ? "20" + y : y) : String(new Date().getFullYear());
+      t.prazo = yy + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0"); return "";
+    }).replace(/\s+/g, " ").trim();
+  t.projetos = projList(t.projetos); t.projeto = t.projetos[0] || "";
+  t.tags = syncProjetoTag([...new Set(t.tags)], t.projetos);
+  return Object.assign(t, { titulo });
+}
+let indiceIds = new Set();
+function newId(titulo) { let base = slug(titulo).replace(/:/g, "-").slice(0, 40).replace(/-+$/, "") || "tarefa"; let id = base, n = 2; while (byId(id) || indiceIds.has(id)) id = base + "-" + n++; return id; }
+async function addTask(text) {
+  if (!db || !canWrite) { toast("O banco não está disponível nesta visualização."); return; }
+  const p = parseQuick(text); if (!p.titulo) return;
+  const now = nowIso(), id = newId(p.titulo);
+  const body = {
+    titulo: p.titulo, status: "entrada", resolucao: null, prioridade: p.prioridade, area: p.area, projeto: p.projeto, projetos: p.projetos,
+    tags: p.tags, chaves: [], pai: null, relacionadas: [], prazo: p.prazo, proximo_passo: "", contexto: "", resumo: "",
+    links: [], conversas: [], historico: [{ em: now, texto: "Criada no quadro", por: "pagina" }],
+    fonte: { tipo: "manual", ref: "" }, auto: false, criado_em: now, atualizado_em: now, concluido_em: null,
+  };
+  tasks.push(Object.assign({ id }, body)); render();
+  const w = queue(id, async () => {
+    const s = await col().doc(id).get();
+    if (s.exists) throw { code: "conflito", message: "já existe uma tarefa com o id " + id + "; recarregue e tente de novo" };
+    await col().doc(id).set(body); return true;
+  });
+  touchIndex({ [id]: indexEntry(Object.assign({ id }, body)) }, w);
+}
+function deleteTask(id) {
+  if (!db || !canWrite) return;
+  const t = byId(id); if (!t) return;
+  // desfaz ligações que apontam para ela
+  tasks.filter(x => x.pai === id).forEach(x => patchTask(x.id, { pai: null }, "Tarefa-mãe apagada: " + t.titulo));
+  tasks.filter(x => (x.relacionadas || []).includes(id)).forEach(x => patchTask(x.id, { relacionadas: x.relacionadas.filter(r => r !== id) }, "Ligação removida: " + t.titulo + " foi apagada"));
+  tasks = tasks.filter(x => x.id !== id); ui.openId = null; ui.confirmDel = false; render();
+  const w = queue(id, () => col().doc(id).delete().then(() => true));
+  touchIndex({ [id]: { s: "apagada", u: nowIso() } }, w);
+  toast("Tarefa apagada");
+}
+function linkRelated(a, b) {
+  const ta = byId(a), tb = byId(b); if (!ta || !tb || a === b) return;
+  if (!(ta.relacionadas || []).includes(b)) patchTask(a, { relacionadas: [...(ta.relacionadas || []), b] }, "Ligada a: " + tb.titulo);
+  if (!(tb.relacionadas || []).includes(a)) patchTask(b, { relacionadas: [...(tb.relacionadas || []), a] }, "Ligada a: " + ta.titulo);
+}
+function unlinkRelated(a, b) {
+  const ta = byId(a), tb = byId(b);
+  if (ta) patchTask(a, { relacionadas: (ta.relacionadas || []).filter(x => x !== b) }, "Ligação removida: " + (tb ? tb.titulo : b));
+  if (tb) patchTask(b, { relacionadas: (tb.relacionadas || []).filter(x => x !== a) }, "Ligação removida: " + (ta ? ta.titulo : a));
+}
+// ===== Recorrentes (coleção recorrentes; regra igual à de <skills>/tarefas/recorrentes.py) =====
+let recs = [], recLoaded = false;
+const DOW = ["", "seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+const ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const addDays = (s, n) => { const d = new Date(s + "T12:00:00"); d.setDate(d.getDate() + n); return ymd(d); };
+const isoDow = s => { const g = new Date(s + "T12:00:00").getDay(); return g === 0 ? 7 : g; };
+const dayDiff = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / DIA);
+function recInicio(r) { return (r.regra && r.regra.inicio) || (r.criado_em || "").slice(0, 10) || todayStr(); }
+function recMatch(r, s) {
+  const g = r.regra || {}, ini = recInicio(r), n = Math.max(1, +g.a_cada || 1);
+  if (s < ini) return false;
+  if (g.tipo === "diaria") return dayDiff(ini, s) % n === 0;
+  if (g.tipo === "semanal") {
+    const dias = (g.dias && g.dias.length) ? g.dias : [isoDow(ini)];
+    if (!dias.includes(isoDow(s))) return false;
+    return Math.round(dayDiff(addDays(ini, 1 - isoDow(ini)), addDays(s, 1 - isoDow(s))) / 7) % n === 0;
+  }
+  if (g.tipo === "mensal") {
+    const [y, m, d] = s.split("-").map(Number), [yi, mi] = ini.split("-").map(Number);
+    if (((y - yi) * 12 + (m - mi)) % n !== 0) return false;
+    const ult = new Date(y, m, 0).getDate(), alvo = +g.dia === -1 ? ult : Math.min(+g.dia || +ini.slice(8), ult);
+    return d === alvo;
+  }
+  return false;
+}
+function recNext(r, from) { let s = from > recInicio(r) ? from : recInicio(r); for (let i = 0; i < 800; i++, s = addDays(s, 1)) if (recMatch(r, s)) return s; return null; }
+function recRegraTxt(r) {
+  const g = r.regra || {}, n = Math.max(1, +g.a_cada || 1);
+  if (g.tipo === "diaria") return n === 1 ? "todo dia" : "a cada " + n + " dias";
+  if (g.tipo === "semanal") return (n === 1 ? "toda semana" : "a cada " + n + " semanas") + " · " + ((g.dias && g.dias.length) ? g.dias : [isoDow(recInicio(r))]).map(d => DOW[d]).join(", ");
+  if (g.tipo === "mensal") return (n === 1 ? "todo mês" : "a cada " + n + " meses") + " · dia " + (+g.dia === -1 ? "último" : (g.dia || +recInicio(r).slice(8)));
+  return "regra inválida";
+}
+const recTaskId = (rid, s) => (rid + "--" + s).slice(0, 60);
+const recOpen = rid => tasks.find(t => t.recorrente === rid && t.status !== "feito");
+// Gera o card da ocorrência que chegou (até hoje + antecedência). Uma aberta por recorrente: se a anterior
+// ainda está aberta, não duplica, só anota nela. Ocorrências que passaram sem ninguém abrir o quadro viram "puladas".
+async function materializar() {
+  if (!db || !canWrite || !loaded || !recLoaded) return;
+  const hojeS = todayStr();
+  for (const r of recs) {
+    if (r.ativo === false) continue;
+    const limite = addDays(hojeS, Math.max(0, +r.antecedencia_dias || 0));
+    let s = recNext(r, r.ultima ? addDays(r.ultima, 1) : recInicio(r)), alvo = null, n = 0;
+    while (s && s <= limite) { alvo = s; n++; s = recNext(r, addDays(s, 1)); }
+    if (!alvo) continue;
+    r.ultima = alvo;
+    const aberta = recOpen(r.id), now = nowIso();
+    const ok = await queue("rec:" + r.id, async () => {
+      if (aberta) {
+        await col().doc(aberta.id).update({ historico: [{ em: now, texto: "Nova ocorrência (" + ddmm(alvo) + ") chegou com esta ainda aberta", por: "pagina" }, ...(aberta.historico || [])].slice(0, HIST_MAX), atualizado_em: now });
+      } else {
+        const id = recTaskId(r.id, alvo), ref = col().doc(id);
+        if (!(await ref.get()).exists) {
+          const body = {
+            titulo: r.titulo, status: "a_fazer", resolucao: null, prioridade: r.prioridade || "media", area: r.area || ESCOPO.areas[0].id,
+            projeto: r.projeto || "", projetos: r.projeto ? [r.projeto] : [], tags: [...new Set([...(r.tags || []), "recorrente:" + r.id])], chaves: ["recorrente:" + r.id + "@" + alvo],
+            pai: null, relacionadas: [], prazo: alvo, proximo_passo: r.proximo_passo || "", contexto: r.contexto || "", resumo: "",
+            links: r.links || [], conversas: [], recorrente: r.id,
+            historico: [{ em: now, texto: "Ocorrência de " + ddmm(alvo) + " da recorrente (" + recRegraTxt(r) + ")" + (n > 1 ? "; " + (n - 1) + " anterior(es) passaram sem card" : ""), por: "pagina" }],
+            fonte: { tipo: "recorrente", ref: r.id }, auto: true, criado_em: now, atualizado_em: now, concluido_em: null,
+          };
+          await ref.set(body);
+          touchIndex({ [id]: indexEntry(Object.assign({ id }, body)) });
+        }
+      }
+      await db.doc("recorrentes/" + r.id).update({ ultima: alvo, atualizado_em: now });
+      return true;
+    });
+    if (ok === false) return;
+  }
+}
+function saveRec(form) {
+  if (!db || !canWrite) return;
+  const f = k => form.querySelector("[name=" + k + "]");
+  const titulo = f("titulo").value.trim(); if (!titulo) { toast("Dê um título à recorrente"); return; }
+  const tipo = f("tipo").value, dias = [...form.querySelectorAll("[name=dia]:checked")].map(x => +x.value);
+  if (tipo === "semanal" && !dias.length) { toast("Escolha pelo menos um dia da semana"); return; }
+  const projeto = f("projeto").value.trim(), now = nowIso();
+  const editing = ui.recEdit && ui.recEdit !== "novo" ? recs.find(x => x.id === ui.recEdit) : null;
+  const regra = { tipo, a_cada: Math.max(1, +f("a_cada").value || 1), inicio: f("inicio").value || todayStr() };
+  if (tipo === "semanal") regra.dias = dias;
+  if (tipo === "mensal") regra.dia = +f("diames").value || 1;
+  const body = {
+    titulo, regra, antecedencia_dias: Math.max(0, +f("antecedencia").value || 0), projeto, prioridade: f("prioridade").value,
+    proximo_passo: f("proximo").value.trim(), tags: syncProjetoTag(editing ? (editing.tags || []) : [], projeto ? [projeto] : []), atualizado_em: now,
+  };
+  if (editing) {
+    // regra mudou → recomeça a contar da data de início nova (não gera de novo o que já passou)
+    if (JSON.stringify(editing.regra) !== JSON.stringify(regra)) body.ultima = addDays(regra.inicio, -1) < todayStr() ? addDays(todayStr(), -1) : addDays(regra.inicio, -1);
+    Object.assign(editing, body);
+    queue("rec:" + editing.id, () => db.doc("recorrentes/" + editing.id).update(body).then(() => true));
+  } else {
+    let base = slug(titulo).replace(/:/g, "-").slice(0, 40).replace(/-+$/, "") || "recorrente", id = base, k = 2;
+    while (recs.some(x => x.id === id)) id = base + "-" + k++;
+    Object.assign(body, { ativo: true, area: ESCOPO.areas[0].id, contexto: "", ultima: addDays(regra.inicio, -1), criado_em: now });
+    recs.push(Object.assign({ id }, body));
+    queue("rec:" + id, async () => { const ref = db.doc("recorrentes/" + id); if ((await ref.get()).exists) throw { message: "já existe uma recorrente com o id " + id }; await ref.set(body); return true; });
+  }
+  ui.recEdit = null; render(); setTimeout(materializar, 300);
+}
+function wouldCycle(child, parent) { let p = parent, n = 0; while (p && n++ < 50) { if (p === child) return true; p = (byId(p) || {}).pai; } return false; }
+
+// ===== Filtros =====
+function filtered() {
+  const q = slug(ui.q).replace(/-/g, " ");
+  return tasks.filter(t =>
+    (!ui.projeto || projetosOf(t).includes(ui.projeto)) &&
+    (!ui.tag || (t.tags || []).includes(ui.tag)) &&
+    (!ui.area || t.area === ui.area) &&
+    (ui.showRec || !t.recorrente) &&
+    (!q || slug([t.titulo, t.proximo_passo, t.contexto, t.resumo, projetosOf(t).join(" "), (t.tags || []).join(" "), (t.chaves || []).join(" ")].join(" ")).replace(/-/g, " ").includes(q)));
+}
+function sortTasks(arr) {
+  return arr.slice().sort((a, b) => {
+    if (a.status === "feito" && b.status === "feito") return (b.concluido_em || "").localeCompare(a.concluido_em || "");
+    const pa = PRIO_ORD[a.prioridade] ?? 1, pb = PRIO_ORD[b.prioridade] ?? 1;
+    if (pa !== pb) return pa - pb;
+    const da = a.prazo || "9999", dbb = b.prazo || "9999";
+    if (da !== dbb) return da.localeCompare(dbb);
+    return (b.atualizado_em || "").localeCompare(a.atualizado_em || "");
+  });
+}
+
+// ===== Render =====
+function renderControls() {
+  $("#scopeName").textContent = ESCOPO.nome || "";
+  $("#scopeSub").textContent = ESCOPO.sub || "";
+  $("#quickHint").innerHTML = 'Atalhos: <code>#' + esc(ESCOPO.exemploProjeto || "Projeto") + '</code> projeto (pode repetir), <code>+tema</code> tag, <code>@pessoa</code> pessoa' +
+    (ESCOPO.areas.length > 1 ? ' (ou ' + ESCOPO.areas.map(a => '<code>@' + esc(a.id) + '</code>').join(", ") + ' para a área)' : '') + ', <code>!alta</code> prioridade, <code>^15/10</code> prazo.';
+  const projetos = [...new Set(tasks.flatMap(projetosOf))].sort((a, b) => a.localeCompare(b, "pt"));
+  if (ui.projeto && !projetos.includes(ui.projeto)) ui.projeto = "";
+  $("#fProjeto").innerHTML = '<option value="">Todos os projetos</option>' + projetos.map(p => `<option ${p === ui.projeto ? "selected" : ""}>${esc(p)}</option>`).join("");
+  const tags = [...new Set(tasks.flatMap(t => (t.tags || []).filter(x => !x.startsWith("projeto:"))))].sort();
+  if (ui.tag && !tags.includes(ui.tag)) ui.tag = "";
+  $("#fTag").innerHTML = '<option value="">Todas as tags</option>' + tags.map(g => `<option value="${esc(g)}" ${g === ui.tag ? "selected" : ""}>${esc(g)}</option>`).join("");
+  $("#fArea").hidden = ESCOPO.areas.length < 2;
+  $("#fArea").innerHTML = [{ id: "", nome: "Tudo" }, ...ESCOPO.areas].map(a => `<button type="button" data-a="${esc(a.id)}" aria-pressed="${ui.area === a.id}">${esc(a.nome)}</button>`).join("");
+  $("#fView").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(ui.view === b.dataset.v)));
+  $("#fRec").setAttribute("aria-pressed", String(!!ui.showRec)); $("#fRec").hidden = ui.view === "recorrentes" || !tasks.some(t => t.recorrente);
+  $("#quickInput").disabled = $("#quickBtn").disabled = !db || !canWrite;
+}
+function renderToday() {
+  const el = $("#today"), bd = hoje && hoje.bom_dia;
+  if (!bd || (!(bd.plano || []).length && !(bd.reunioes || []).length)) { el.hidden = true; return; }
+  el.hidden = false;
+  const plano = (bd.plano || []).map((p, i) => `<li class="${p.feito ? "done" : ""}"><input type="checkbox" id="plano-${i}" data-plano="${i}" ${p.feito ? "checked" : ""} ${!db || !canWrite ? "disabled" : ""}>
+    <span>${p.tarefa && byId(p.tarefa) ? `<span class="linkt" data-open="${esc(p.tarefa)}">${esc(p.texto)}</span>` : esc(p.texto)}</span></li>`).join("");
+  const reun = (bd.reunioes || []).map(r => `<li><span class="hora">${esc(r.hora || "")}</span><span>${esc(r.titulo)}${(r.tarefas || []).filter(byId).map(id => ` · <span class="linkt" data-open="${esc(id)}">${esc(byId(id).titulo)}</span>`).join("")}</span></li>`).join("");
+  el.innerHTML = `<div><h2>Plano de hoje · ${ddmm(todayStr())}</h2><ul>${plano || '<li><span class="hint">Sem plano gravado pelo bom dia.</span></li>'}</ul></div>
+    <div><h2>Reuniões</h2><ul>${reun || '<li><span class="hint">Nenhuma reunião ligada.</span></li>'}</ul></div>`;
+}
+function renderSummary() {
+  const open = tasks.filter(t => t.status !== "feito");
+  const late = open.filter(t => { const p = prazoInfo(t); return p && p.cls === "late"; }).length;
+  const zombie = open.filter(t => daysSince(t.atualizado_em || t.criado_em) >= (ESCOPO.zumbi_dias || 60)).length;
+  const doneWeek = tasks.filter(t => t.status === "feito" && t.resolucao !== "descartada" && daysSince(t.concluido_em) < 7).length;
+  const n = s => open.filter(t => t.status === s).length;
+  $("#summary").innerHTML = [
+    ["Abertas", open.length, ""], ["Na entrada", n("entrada"), ""], ["Fazendo", n("fazendo"), ""], ["Esperando", n("esperando"), ""],
+    ["Atrasadas", late, late ? "bad" : ""], ["Paradas " + (ESCOPO.zumbi_dias || 60) + "+ dias", zombie, zombie ? "warn" : ""], ["Feitas em 7 dias", doneWeek, ""],
+  ].map(([l, v, c]) => `<span class="stat ${c}"><b>${v}</b>${l}</span>`).join("");
+}
+function tagChips(t, max) {
+  const tags = (t.tags || []).filter(x => !x.startsWith("projeto:"));
+  return tags.slice(0, max).map(g => `<span class="tagchip ${g.startsWith("pessoa:") ? "pessoa" : ""} ${g === ui.tag ? "on" : ""}" data-tag="${esc(g)}" title="${esc(g)}">${esc(tagLabel(g))}</span>`).join("") +
+    (tags.length > max ? `<span class="date">+${tags.length - max}</span>` : "");
+}
+function cardHtml(t) {
+  const p = prazoInfo(t), s = staleInfo(t), c = mainConv(t), nc = (t.conversas || []).length;
+  const pai = t.pai && byId(t.pai), filhos = tasks.filter(x => x.pai === t.id), abertos = filhos.filter(x => x.status !== "feito").length;
+  return `<div role="button" tabindex="0" class="card ${t.status === "feito" ? "done" : ""}" data-id="${esc(t.id)}" draggable="${canWrite && !!db}">
+    ${pai ? `<span class="parent">↳ ${esc(pai.titulo)}</span>` : ""}
+    <span class="t">${esc(t.titulo)}</span>
+    ${t.proximo_passo ? `<span class="next">→ ${esc(t.proximo_passo)}</span>` : ""}
+    <span class="meta">
+      ${t.prioridade === "alta" ? '<span class="prio alta">alta</span>' : ""}
+      ${projetosOf(t).map(p => `<span class="chip area">${esc(p)}</span>`).join("")}
+      ${tagChips(t, 3)}
+      ${filhos.length ? `<span class="chip">${abertos}/${filhos.length} subtarefas</span>` : ""}
+      ${(t.relacionadas || []).length ? `<span class="chip">${t.relacionadas.length} ligada${t.relacionadas.length > 1 ? "s" : ""}</span>` : ""}
+      ${p ? `<span class="chip ${p.cls}">${p.txt}</span>` : ""}
+      ${s ? `<span class="chip ${s.cls}">${s.txt}</span>` : ""}
+      ${t.recorrente ? '<span class="chip rec" title="Gerada por uma tarefa recorrente">↻ recorrente</span>' : ""}
+      ${t.auto && t.status === "entrada" ? '<span class="chip auto">automático</span>' : ""}
+      ${t.resolucao === "descartada" ? '<span class="chip desc">descartada</span>' : ""}
+      ${t.status === "feito" && t.concluido_em ? `<span class="date">${t.resolucao === "descartada" ? "fechada" : "feita"} ${ddmm(t.concluido_em.slice(0, 10))}</span>` : ""}
+    </span>
+    ${c ? convBtn(c, (c.arquivada ? "Conversa arquivada" : "Abrir conversa") + (nc > 1 ? " · " + nc : "") + " ↗") : ""}
+  </div>`;
+}
+function renderBoard(list) {
+  const cols = STATUS.map(s => {
+    let items = sortTasks(list.filter(t => t.status === s.id));
+    const total = items.length;
+    if (s.id === "feito") items = items.slice(0, 15);
+    return `<section class="col" data-status="${s.id}" aria-label="${s.nome}">
+      <div class="col-head"><h2><span class="sdot s-${s.id}"></span>${s.nome}</h2><span class="n">${total}</span></div>
+      ${items.map(cardHtml).join("") || `<div class="col-empty">${s.id === "entrada" ? "Nada novo para triar." : "Vazio."}</div>`}
+      ${s.id === "feito" && total > 15 ? `<div class="col-empty">Mostrando as 15 mais recentes. A Lista mostra todas.</div>` : ""}
+    </section>`;
+  }).join("");
+  return `<div class="board-scroll"><div class="board">${cols}</div></div>`;
+}
+function renderList(list) {
+  const groups = {};
+  sortTasks(list).forEach(t => { const ps = projetosOf(t); (ps.length ? ps : ["Sem projeto"]).forEach(k => (groups[k] = groups[k] || []).push(t)); });
+  const keys = Object.keys(groups).sort((a, b) => a === "Sem projeto" ? 1 : b === "Sem projeto" ? -1 : a.localeCompare(b, "pt"));
+  const ord = Object.fromEntries(STATUS.map((s, i) => [s.id, i]));
+  const rows = keys.map(k => {
+    const items = groups[k].sort((a, b) => (a.status === "feito") - (b.status === "feito") || ord[b.status] - ord[a.status]);
+    return `<tr class="group"><td colspan="5">${esc(k)} <span class="date">· ${items.filter(t => t.status !== "feito").length} abertas</span></td></tr>` +
+      items.map(t => {
+        const p = prazoInfo(t), s = staleInfo(t), c = mainConv(t);
+        return `<tr class="row" data-id="${esc(t.id)}" tabindex="0">
+          <td><span class="status"><span class="sdot s-${stId(t.status)}"></span>${t.resolucao === "descartada" ? "Descartada" : STATUS_NOME[stId(t.status)]}</span></td>
+          <td><div class="t">${esc(t.titulo)}</div>${t.proximo_passo ? `<div class="hint">→ ${esc(t.proximo_passo)}</div>` : ""}<div class="meta" style="margin-top:4px">${tagChips(t, 5)}</div>${c ? `<div style="margin-top:6px">${convBtn(c)}</div>` : ""}</td>
+          <td><span class="prio ${esc(t.prioridade)}">${t.prioridade === "media" ? "média" : esc(t.prioridade || "")}</span></td>
+          <td>${p ? `<span class="chip ${p.cls}">${p.txt}</span>` : (t.prazo ? `<span class="date">${ddmm(t.prazo)}</span>` : "")}</td>
+          <td><span class="date">${ddmm((t.atualizado_em || "").slice(0, 10))}</span>${s ? ` <span class="chip ${s.cls}">${s.txt}</span>` : ""}</td>
+        </tr>`;
+      }).join("");
+  }).join("");
+  return `<div class="list-scroll"><table><thead><tr><th>Status</th><th>Tarefa</th><th>Prioridade</th><th>Prazo</th><th>Atualizada</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function recFormHtml(r) {
+  const g = (r && r.regra) || { tipo: "semanal", dias: [isoDow(todayStr())], a_cada: 1, inicio: todayStr() };
+  const projetos = [...new Set(tasks.map(x => x.projeto).filter(Boolean))].sort();
+  return `<form class="rec-form" id="recForm" autocomplete="off">
+    <h2>${r ? "Editar recorrente" : "Nova recorrente"}</h2>
+    <label class="lbl wide">Título<input class="field" name="titulo" value="${esc(r ? r.titulo : "")}" placeholder="Ex.: Fechar o financeiro do mês" required></label>
+    <label class="lbl">Repete<select class="field" name="tipo">${[["diaria", "Diária"], ["semanal", "Semanal"], ["mensal", "Mensal"]].map(([v, l]) => `<option value="${v}" ${g.tipo === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    <label class="lbl">A cada<input class="field" name="a_cada" type="number" min="1" value="${esc(g.a_cada || 1)}"></label>
+    <div class="lbl full" data-only="semanal">Dias<div class="dows">${[1, 2, 3, 4, 5, 6, 7].map(d => `<label><input type="checkbox" name="dia" value="${d}" ${(g.dias || []).includes(d) ? "checked" : ""}>${DOW[d]}</label>`).join("")}</div></div>
+    <label class="lbl" data-only="mensal">Dia do mês<input class="field" name="diames" type="number" min="-1" max="31" value="${esc(g.dia || +String(g.inicio || todayStr()).slice(8))}" title="-1 = último dia do mês"></label>
+    <label class="lbl">Começa em<input class="field" name="inicio" type="date" value="${esc(g.inicio || todayStr())}"></label>
+    <label class="lbl">Aparece antes (dias)<input class="field" name="antecedencia" type="number" min="0" max="30" value="${esc(r ? (r.antecedencia_dias || 0) : 0)}"></label>
+    <label class="lbl">Projeto<input class="field" name="projeto" list="dlRecProj" value="${esc(r ? r.projeto || "" : "")}"><datalist id="dlRecProj">${projetos.map(p => `<option value="${esc(p)}">`).join("")}</datalist></label>
+    <label class="lbl">Prioridade<select class="field" name="prioridade">${["alta", "media", "baixa"].map(p => `<option value="${p}" ${(r ? r.prioridade : "media") === p ? "selected" : ""}>${p === "media" ? "média" : p}</option>`).join("")}</select></label>
+    <label class="lbl full">Próximo passo (vai em cada card)<input class="field" name="proximo" value="${esc(r ? r.proximo_passo || "" : "")}" placeholder="O que fazer quando ela aparecer"></label>
+    <div class="full" style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="recCancel">Cancelar</button><button class="btn primary" type="submit">Salvar</button></div>
+  </form>`;
+}
+function syncRecForm() {
+  const f = $("#recForm"); if (!f) return;
+  const tipo = f.querySelector("[name=tipo]").value;
+  f.querySelectorAll("[data-only]").forEach(el => el.hidden = el.dataset.only !== tipo);
+}
+function renderRecorrentes() {
+  const ro = !db || !canWrite;
+  if (!recLoaded) return `<div class="empty"><h2>Carregando as recorrentes…</h2></div>`;
+  const editing = ui.recEdit === "novo" ? null : recs.find(r => r.id === ui.recEdit);
+  const rows = recs.slice().sort((a, b) => (a.ativo === false) - (b.ativo === false) || a.titulo.localeCompare(b.titulo, "pt")).map(r => {
+    const prox = r.ativo === false ? null : recNext(r, r.ultima ? addDays(r.ultima, 1) : recInicio(r)), ab = recOpen(r.id);
+    return `<div class="rec-row ${r.ativo === false ? "off" : ""}">
+      <span class="t">${esc(r.titulo)}<br><span class="r">${esc(recRegraTxt(r))}${r.projeto ? " · " + esc(r.projeto) : ""}${+r.antecedencia_dias ? " · aparece " + r.antecedencia_dias + "d antes" : ""}</span></span>
+      <span class="r">${r.ativo === false ? "pausada" : prox ? "próxima " + ddmm(prox) : "sem próxima"}</span>
+      ${ab ? `<span class="linkt" data-open="${esc(ab.id)}" style="font-size:12.5px">card aberto (${esc(STATUS_NOME[ab.status])}) ↗</span>` : ""}
+      ${ro ? "" : `<button type="button" class="mini" data-recedit="${esc(r.id)}">editar</button><button type="button" class="mini" data-recpausa="${esc(r.id)}">${r.ativo === false ? "retomar" : "pausar"}</button><button type="button" class="mini" data-recdel="${esc(r.id)}">apagar</button>`}
+    </div>`;
+  }).join("");
+  return `<div class="recs">
+    ${ui.recEdit && !ro ? recFormHtml(editing) : ro ? "" : `<div><button type="button" class="btn primary" id="recNew">Nova recorrente</button></div>`}
+    ${rows || '<div class="empty"><h2>Nenhuma tarefa recorrente</h2>Crie uma aqui (ex.: "Fechar o financeiro", todo mês no dia 5). Quando chega o dia, ela vira um card em A fazer no quadro.</div>'}
+    <p class="hint">Cada ocorrência vira um card em A fazer com prazo no dia, e anda pelo quadro como qualquer tarefa. Enquanto o card anterior estiver aberto, não nasce outro.</p>
+  </div>`;
+}
+function renderMain() {
+  const main = $("#main");
+  if (ui.view === "recorrentes") { main.innerHTML = renderRecorrentes(); syncRecForm(); return; }
+  if (!loaded) { main.innerHTML = `<div class="empty"><h2>Carregando as tarefas…</h2>As tarefas ficam guardadas no banco deste artefato.</div>`; return; }
+  if (!tasks.length) { main.innerHTML = `<div class="empty"><h2>Nenhuma tarefa ainda</h2>Escreva a primeira no campo acima e aperte Enter, ou peça ao Claude para registrar o que você está fazendo.</div>`; return; }
+  const list = filtered();
+  if (!list.length) { main.innerHTML = `<div class="empty"><h2>Nada com esses filtros</h2>Limpe a busca ou troque o projeto e a tag.</div>`; return; }
+  main.innerHTML = ui.view === "lista" ? renderList(list) : renderBoard(list);
+}
+function relRow(kind, id, removable) {
+  const t = byId(id); if (!t) return "";
+  return `<div class="rel-row"><span class="k">${kind}</span><button type="button" class="go" data-open="${esc(id)}">${esc(t.titulo)} <span class="date">· ${t.resolucao === "descartada" ? "Descartada" : STATUS_NOME[t.status]}</span></button>${removable ? `<button type="button" class="mini" data-unrel="${esc(id)}">remover</button>` : ""}</div>`;
+}
+function renderDrawer(force) {
+  const host = $("#drawerHost");
+  const ae = document.activeElement;
+  if (!force && ui.openId && ae && host.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) return;
+  const t = byId(ui.openId);
+  if (!t) { host.innerHTML = ""; return; }
+  const ro = !canWrite || !db ? "disabled" : "";
+  const projetos = [...new Set(tasks.flatMap(projetosOf))].sort();
+  const filhos = tasks.filter(x => x.pai === t.id);
+  const outras = sortTasks(tasks.filter(x => x.id !== t.id && x.status !== "feito"));
+  const statusVal = t.status === "feito" && t.resolucao === "descartada" ? "descartada" : t.status;
+  host.innerHTML = `<div class="scrim" data-close="1"></div>
+  <aside class="drawer" role="dialog" aria-label="Detalhe da tarefa">
+    <div class="d-head">
+      <textarea id="dTitulo" rows="2" ${ro} aria-label="Título">${esc(t.titulo)}</textarea>
+      <button class="icon-btn" type="button" data-close="1" aria-label="Fechar">×</button>
+    </div>
+    <div class="d-body">
+      ${t.resumo ? `<p style="margin:0;color:var(--muted)">${esc(t.resumo)}</p>` : ""}
+      <div class="grid2">
+        <label class="lbl">Status<select class="field" id="dStatus" ${ro}>${STATUS.map(s => `<option value="${s.id}" ${s.id === statusVal ? "selected" : ""}>${s.nome}</option>`).join("")}<option value="descartada" ${statusVal === "descartada" ? "selected" : ""}>Descartada</option></select></label>
+        <label class="lbl">Prioridade<select class="field" id="dPrio" ${ro}>${["alta", "media", "baixa"].map(p => `<option value="${p}" ${p === t.prioridade ? "selected" : ""}>${p === "media" ? "média" : p}</option>`).join("")}</select></label>
+        <label class="lbl">Projetos<input class="field" id="dProjeto" list="dlProjetos" value="${esc(projetosOf(t).join(", "))}" placeholder="Site, Ferramentas" title="Um ou mais, separados por vírgula; o primeiro é o principal" ${ro}><datalist id="dlProjetos">${projetos.map(p => `<option value="${esc(p)}">`).join("")}</datalist></label>
+        ${ESCOPO.areas.length > 1 ? `<label class="lbl">Área<select class="field" id="dArea" ${ro}>${ESCOPO.areas.map(a => `<option value="${esc(a.id)}" ${a.id === t.area ? "selected" : ""}>${esc(a.nome)}</option>`).join("")}</select></label>` : ""}
+        <label class="lbl">Prazo<input class="field" type="date" id="dPrazo" value="${esc(t.prazo || "")}" ${ro}></label>
+        <label class="lbl">Criada<span class="date" style="padding-top:8px">${ddmmhh(t.criado_em)}</span></label>
+      </div>
+      <label class="lbl">Tags<input class="field" id="dTags" value="${esc((t.tags || []).filter(x => !x.startsWith("projeto:")).join(", "))}" placeholder="pessoa:ana, tema:financeiro" ${ro}></label>
+      <label class="lbl">Próximo passo<input class="field" id="dProx" value="${esc(t.proximo_passo)}" placeholder="A próxima ação concreta" ${ro}></label>
+      <label class="lbl">Contexto<textarea class="field" id="dCtx" rows="5" placeholder="Pessoas, decisões, por que isso existe" ${ro}>${esc(t.contexto)}</textarea></label>
+      <div>
+        <p class="sec-title">Ligações</p>
+        <div class="rel-list">
+          ${t.pai ? relRow("mãe", t.pai, false) : ""}
+          ${filhos.map(f => relRow("sub", f.id, false)).join("")}
+          ${(t.relacionadas || []).map(r => relRow("ligada", r, !ro)).join("")}
+          ${!t.pai && !filhos.length && !(t.relacionadas || []).length ? '<span class="hint">Nenhuma ligação ainda.</span>' : ""}
+          ${ro ? "" : `<form class="rel-add" id="relForm">
+            <select class="field" id="rTipo" aria-label="Tipo de ligação"><option value="rel">Ligar a</option><option value="pai">É subtarefa de</option></select>
+            <select class="field" id="rAlvo" aria-label="Tarefa"><option value="">Escolha a tarefa…</option>${outras.map(o => `<option value="${esc(o.id)}">${esc(o.titulo)}</option>`).join("")}</select>
+            <button class="btn" type="submit">Ligar</button></form>`}
+          ${t.pai && !ro ? `<button type="button" class="mini" id="unPai" style="align-self:flex-start">Deixar de ser subtarefa</button>` : ""}
+        </div>
+      </div>
+      <div>
+        <p class="sec-title">Conversas no Claude</p>
+        <div class="links">
+          ${(t.conversas || []).map((c, i) => `<div class="conv-row">
+            <span class="ct">${esc(c.titulo || c.id)}${c.arquivada ? ' <span class="chip">arquivada</span>' : ""}<small>${esc(convLink(c))}</small></span>
+            ${convBtn(c, "Abrir ↗")}
+            <button type="button" class="mini" data-copyconv="${i}">Copiar link</button>
+            ${ro ? "" : `<button type="button" class="mini" data-rmconv="${i}">remover</button>`}
+          </div>`).join("") || '<span class="hint">Nenhuma conversa ligada a esta tarefa.</span>'}
+          ${ro ? "" : `<form class="conv-add" id="convForm"><input class="field" id="cLink" placeholder="Link ou id da conversa (claude://… ou local_…)" required><input class="field" id="cTit" placeholder="Título (opcional)"><button class="btn" type="submit">Ligar</button></form>`}
+        </div>
+      </div>
+      <div>
+        <p class="sec-title">Links e evidências</p>
+        <div class="links">
+          ${(t.links || []).map((l, i) => `<div class="link-row"><a href="${esc(/^https?:\/\//.test(l.url) ? l.url : "#")}" target="_blank" rel="noopener">${esc(l.rotulo || l.url)}</a>${ro ? "" : `<button type="button" data-rmlink="${i}">remover</button>`}</div>`).join("") || '<span class="hint">Nenhum link ainda.</span>'}
+          ${ro ? "" : `<form class="link-add" id="linkForm"><input class="field" id="lRot" placeholder="Rótulo (ex.: PR #356)"><input class="field" id="lUrl" type="url" placeholder="https://…" required><button class="btn" type="submit">Adicionar</button></form>`}
+        </div>
+      </div>
+      <div>
+        <p class="sec-title">Histórico</p>
+        ${ro ? "" : `<form class="note-add" id="noteForm" style="margin-bottom:10px"><input class="field" id="nTxt" placeholder="Anotar o que andou"><button class="btn" type="submit">Anotar</button></form>`}
+        <ul class="timeline">${(t.historico || []).map(h => `<li><span class="date">${ddmmhh(h.em)}${h.por && h.por !== "pagina" ? " · " + esc(h.por) : ""}</span>${esc(h.texto)}</li>`).join("")}</ul>
+      </div>
+      <div class="d-foot">
+        <span class="src">Origem: ${esc(t.fonte?.tipo || "manual")}${t.fonte?.ref ? " · " + esc(t.fonte.ref) : ""}${(t.chaves || []).length ? " · " + t.chaves.map(esc).join(", ") : ""}</span>
+        ${ro ? "" : ui.confirmDel
+          ? `<span style="display:flex;gap:6px;align-items:center"><span class="hint">Apagar de vez?</span><button class="btn danger" type="button" id="delYes">Apagar</button><button class="btn" type="button" id="delNo">Cancelar</button></span>`
+          : `<button class="btn danger" type="button" id="delAsk">Apagar tarefa</button>`}
+      </div>
+    </div>
+  </aside>`;
+}
+function render() { renderControls(); renderToday(); renderSummary(); if (!(ui.view === "recorrentes" && ui.recEdit && $("#recForm"))) renderMain(); renderDrawer(); }
+
+// ===== Eventos =====
+$("#quickForm").addEventListener("submit", e => { e.preventDefault(); const v = $("#quickInput").value; $("#quickInput").value = ""; addTask(v); });
+let qTimer; $("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value; renderMain(); }, 120); });
+$("#fProjeto").addEventListener("change", e => { ui.projeto = e.target.value; persistUi(); render(); });
+$("#fTag").addEventListener("change", e => { ui.tag = e.target.value; persistUi(); render(); });
+$("#fArea").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ui.area = b.dataset.a; persistUi(); render(); });
+$("#fRec").addEventListener("click", () => { ui.showRec = !ui.showRec; persistUi(); render(); });
+$("#fView").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ui.view = b.dataset.v; persistUi(); render(); });
+function openTask(id) { ui.openId = id; ui.confirmDel = false; renderDrawer(true); setTimeout(() => $("#dTitulo")?.focus(), 0); }
+
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-conv]"); if (!a) return;
+  const link = a.dataset.conv; let left = false;
+  const onBlur = () => { left = true; };
+  window.addEventListener("blur", onBlur, { once: true });
+  setTimeout(() => {
+    window.removeEventListener("blur", onBlur);
+    if (!left && document.visibilityState === "visible") navigator.clipboard?.writeText(link).then(
+      () => toast("O app não abriu daqui. Copiei o link: cole na barra do navegador."),
+      () => toast("O app não abriu daqui. Use Copiar link na tarefa."));
+  }, 1500);
+}, true);
+function chipFilter(e) { const g = e.target.closest("[data-tag]"); if (!g) return false; e.stopPropagation(); ui.tag = ui.tag === g.dataset.tag ? "" : g.dataset.tag; persistUi(); render(); return true; }
+$("#main").addEventListener("click", e => {
+  if (ui.view !== "recorrentes") return;
+  const op = e.target.closest("[data-open]"); if (op) { openTask(op.dataset.open); return; }
+  if (e.target.id === "recNew") { ui.recEdit = "novo"; renderMain(); return; }
+  if (e.target.id === "recCancel") { ui.recEdit = null; renderMain(); return; }
+  const ed = e.target.closest("[data-recedit]"); if (ed) { ui.recEdit = ed.dataset.recedit; renderMain(); return; }
+  const pa = e.target.closest("[data-recpausa]");
+  if (pa) { const r = recs.find(x => x.id === pa.dataset.recpausa); if (!r) return; const ativo = r.ativo === false;
+    // retomar não gera o que passou durante a pausa
+    const body = ativo ? { ativo, ultima: addDays(todayStr(), -1), atualizado_em: nowIso() } : { ativo, atualizado_em: nowIso() };
+    Object.assign(r, body); queue("rec:" + r.id, () => db.doc("recorrentes/" + r.id).update(body).then(() => true)); renderMain(); if (ativo) setTimeout(materializar, 300); return; }
+  const dl = e.target.closest("[data-recdel]");
+  if (dl) { const id = dl.dataset.recdel; if (dl.dataset.confirm !== "1") { dl.dataset.confirm = "1"; dl.textContent = "confirmar"; return; }
+    recs = recs.filter(x => x.id !== id); queue("rec:" + id, () => db.doc("recorrentes/" + id).delete().then(() => true)); renderMain(); toast("Recorrente apagada (os cards que ela já gerou ficam)"); }
+}, true);
+$("#main").addEventListener("change", e => { if (e.target.name === "tipo") syncRecForm(); });
+$("#main").addEventListener("submit", e => { if (e.target.id === "recForm") { e.preventDefault(); saveRec(e.target); } });
+$("#main").addEventListener("click", e => { if (ui.view === "recorrentes") return; if (e.target.closest("a")) return; if (chipFilter(e)) return; const el = e.target.closest("[data-id]"); if (el) openTask(el.dataset.id); });
+$("#main").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !e.target.closest("a")) { const el = e.target.closest("[data-id]"); if (el && e.target === el) { e.preventDefault(); openTask(el.dataset.id); } } });
+$("#today").addEventListener("click", e => { const o = e.target.closest("[data-open]"); if (o) openTask(o.dataset.open); });
+$("#today").addEventListener("change", e => {
+  const i = e.target.dataset.plano; if (i == null || !db || !hoje) return;
+  const plano = (hoje.bom_dia.plano || []).map((p, k) => k === +i ? Object.assign({}, p, { feito: e.target.checked }) : p);
+  hoje = Object.assign({}, hoje, { bom_dia: Object.assign({}, hoje.bom_dia, { plano }) }); renderToday();
+  queue("dia", () => db.doc("dias/" + todayStr()).update({ bom_dia: { plano } }));
+});
+
+let dragId = null;
+$("#main").addEventListener("dragstart", e => { const c = e.target.closest(".card"); if (!c) return; dragId = c.dataset.id; c.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", dragId); } catch (_) {} });
+$("#main").addEventListener("dragend", e => { e.target.closest?.(".card")?.classList.remove("dragging"); document.querySelectorAll(".col.drop").forEach(c => c.classList.remove("drop")); });
+$("#main").addEventListener("dragover", e => { const c = e.target.closest(".col"); if (!c || !dragId) return; e.preventDefault(); document.querySelectorAll(".col.drop").forEach(x => x !== c && x.classList.remove("drop")); c.classList.add("drop"); });
+$("#main").addEventListener("drop", e => { const c = e.target.closest(".col"); if (!c || !dragId) return; e.preventDefault(); c.classList.remove("drop"); setStatus(dragId, c.dataset.status); dragId = null; });
+
+const host = $("#drawerHost");
+host.addEventListener("click", e => {
+  if (e.target.closest("[data-close]")) { ui.openId = null; renderDrawer(true); return; }
+  const t = byId(ui.openId); if (!t) return;
+  const go = e.target.closest("[data-open]"); if (go) { openTask(go.dataset.open); return; }
+  const cp = e.target.closest("[data-copyconv]"); if (cp) { const c = (t.conversas || [])[+cp.dataset.copyconv]; if (c) copyText(convLink(c)); return; }
+  const rc = e.target.closest("[data-rmconv]"); if (rc) { patchTask(t.id, { conversas: (t.conversas || []).filter((_, i) => i !== +rc.dataset.rmconv) }, "Conversa desligada"); renderDrawer(true); return; }
+  const rm = e.target.closest("[data-rmlink]"); if (rm) { patchTask(t.id, { links: (t.links || []).filter((_, i) => i !== +rm.dataset.rmlink) }); renderDrawer(true); return; }
+  const ur = e.target.closest("[data-unrel]"); if (ur) { unlinkRelated(t.id, ur.dataset.unrel); renderDrawer(true); return; }
+  if (e.target.id === "unPai") { const p = byId(t.pai); patchTask(t.id, { pai: null }, "Deixou de ser subtarefa de " + (p ? p.titulo : t.pai)); renderDrawer(true); return; }
+  if (e.target.id === "delAsk") { ui.confirmDel = true; renderDrawer(true); }
+  if (e.target.id === "delNo") { ui.confirmDel = false; renderDrawer(true); }
+  if (e.target.id === "delYes") deleteTask(t.id);
+});
+host.addEventListener("change", e => {
+  const t = byId(ui.openId); if (!t) return;
+  const v = e.target.value;
+  switch (e.target.id) {
+    case "dTitulo": if (v.trim() && v.trim() !== t.titulo) patchTask(t.id, { titulo: v.trim() }); break;
+    case "dStatus": v === "descartada" ? setStatus(t.id, "feito", "descartada") : setStatus(t.id, v); break;
+    case "dPrio": patchTask(t.id, { prioridade: v }); break;
+    case "dProjeto": { const l = projList(v); if (l.join("|") !== projetosOf(t).join("|")) patchTask(t.id, Object.assign(projPatch(l), { tags: syncProjetoTag(t.tags, l) })); break; }
+    case "dArea": patchTask(t.id, { area: v }); break;
+    case "dPrazo": patchTask(t.id, { prazo: v || null }, v ? "Prazo: " + ddmm(v) : "Prazo removido"); break;
+    case "dTags": { const novas = [...new Set(v.split(",").map(normTag).filter(Boolean))]; patchTask(t.id, { tags: syncProjetoTag(novas, projetosOf(t)) }); break; }
+    case "dProx": if (v.trim() !== (t.proximo_passo || "")) patchTask(t.id, { proximo_passo: v.trim() }); break;
+    case "dCtx": if (v !== (t.contexto || "")) patchTask(t.id, { contexto: v }); break;
+  }
+});
+host.addEventListener("submit", e => {
+  e.preventDefault();
+  const t = byId(ui.openId); if (!t) return;
+  if (e.target.id === "linkForm") {
+    const url = $("#lUrl").value.trim(); if (!/^https?:\/\//.test(url)) { toast("Use um link que comece com https://"); return; }
+    patchTask(t.id, { links: [...(t.links || []), { rotulo: $("#lRot").value.trim(), url }] }); renderDrawer(true);
+  }
+  if (e.target.id === "convForm") {
+    const raw = $("#cLink").value.trim(), m = raw.match(/local_[A-Za-z0-9-]{8,}/);
+    if (!m) { toast("Cole o link da conversa (claude://claude.ai/epitaxy/…) ou o id local_…"); return; }
+    if ((t.conversas || []).some(c => c.id === m[0])) { toast("Essa conversa já está ligada"); return; }
+    const novo = { id: m[0], titulo: $("#cTit").value.trim() || m[0], link: "claude://claude.ai/epitaxy/" + m[0], arquivada: false };
+    patchTask(t.id, { conversas: [...(t.conversas || []), novo], chaves: [...new Set([...(t.chaves || []), "conversa:" + m[0]])] }, "Conversa ligada: " + novo.titulo); renderDrawer(true);
+  }
+  if (e.target.id === "relForm") {
+    const alvo = $("#rAlvo").value, tipo = $("#rTipo").value; if (!alvo) return;
+    if (tipo === "pai") {
+      if (wouldCycle(t.id, alvo)) { toast("Isso criaria um ciclo: a outra tarefa já está abaixo desta."); return; }
+      patchTask(t.id, { pai: alvo }, "Virou subtarefa de " + byId(alvo).titulo);
+    } else linkRelated(t.id, alvo);
+    renderDrawer(true);
+  }
+  if (e.target.id === "noteForm") { const n = $("#nTxt").value.trim(); if (n) { patchTask(t.id, {}, n); renderDrawer(true); $("#nTxt")?.focus(); } }
+});
+host.addEventListener("keydown", e => { if (e.target.id === "dTitulo" && e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && ui.openId) { ui.openId = null; renderDrawer(true); }
+  if (e.key === "/" && !ui.openId && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) { e.preventDefault(); $("#q").focus(); }
+});
+
+// ===== Boot =====
+render();
+(async () => {
+  try { db = window.claude ? await window.claude.use("db") : null; } catch (e) { db = null; }
+  if (!db) { loaded = true; canWrite = false; setSync("off", "Banco indisponível"); banner("O banco deste artefato não respondeu nesta visualização. Abra a página no claude.ai para ver e editar as tarefas."); render(); return; }
+  try {
+    const user = window.claude ? await window.claude.use("user") : null;
+    const w = user ? await user.can("data.write") : null;
+    if (w === false) { canWrite = false; banner("Você tem acesso só de leitura a estas tarefas."); }
+  } catch (e) {}
+  db.doc("config/preferencias").onSnapshot(s => {
+    if (!s.exists) return;
+    const p = s.data();
+    ESCOPO = Object.assign({}, ESCOPO, {
+      nome: p.nome || ESCOPO.nome, sub: p.sub || "", areas: (p.areas && p.areas.length) ? p.areas : ESCOPO.areas,
+      parada_dias: p.parada_dias || 14, zumbi_dias: p.zumbi_dias || 60, exemploProjeto: p.exemplo_projeto || ESCOPO.exemploProjeto,
+    });
+    render();
+  }, () => {});
+  db.doc("indice/ativos").onSnapshot(s => { indiceIds = new Set(s.exists ? Object.keys(s.data().itens || {}) : []); }, () => {});
+  db.doc("dias/" + todayStr()).onSnapshot(s => { hoje = s.exists ? s.data() : null; renderToday(); }, () => {});
+  db.collection("recorrentes").onSnapshot(snap => {
+    recs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); const first = !recLoaded; recLoaded = true;
+    if (ui.view === "recorrentes") render(); if (first) materializar();
+  }, () => { recLoaded = true; });
+  col().onSnapshot(snap => {
+    tasks = snap.docs.map(d => { const x = Object.assign({ id: d.id }, d.data()); x.status = stId(x.status); if (!PRIO_ORD.hasOwnProperty(x.prioridade)) x.prioridade = "media"; return x; });
+    const first = !loaded; loaded = true; setSync("ok", "Sincronizado · " + tasks.length + " tarefas"); render(); if (first) materializar();
+  }, err => { setSync("off", "Sincronização parou"); banner("A conexão com o banco caiu (" + err.code + "). Recarregue a página."); });
+})();
+</script>
