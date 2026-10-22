@@ -7,6 +7,10 @@ conta do Claude, liga cada conversa a um card, abre o seu dia com `/bom-dia` e f
 briefing (`bom-dia`) and an end-of-day wrap-up (`boa-noite`). The skills are written in Portuguese but answer in your
 language: when the board is created it asks which one to use.*
 
+> **Beta.** Testado no app desktop do Claude no macOS. Em andamento para a próxima versão: Windows e Linux, a
+> página do quadro em outros idiomas (hoje os textos dela são em português), fuso e formato de data configuráveis,
+> e a descoberta das suas ferramentas (agenda, reuniões, chat, gestor de tarefas) na criação do quadro.
+
 ## O que vem no plugin
 
 | Skill | Para quê |
