@@ -221,7 +221,7 @@ Um por quadro. Diz qual ferramenta externa de tarefas a pessoa usa e como as ski
 | `config` | específico do tipo. `linear`: `{time, labels_padrao, labels_tipo, usar_cycle}`; `jira`: `{cloud_id, projeto, tipo_issue, jql_abertas, jql_hoje}`; `notion`: `{data_source, campo_titulo, campo_status, campo_responsavel, campo_prazo}`; `generico`: o que a receita precisar (workspace, projeto, quadro…). Só IDs e nomes, nunca token |
 | `receita` | só no `generico` (`gestores/generico.md`): `{conector, eu, ler_abertas, ler_mudadas, buscar, ler_um, criar, mudar_status, comentar, link, status}`, cada um dizendo a tool do conector e os argumentos. Nos outros tipos, `null` (a receita é o arquivo) |
 | `leitura` | o que entra no quadro: `filtro` = `atribuido_a_mim` (padrão) \| `criado_por_mim` \| `seguindo` \| `projeto` \| `consulta`; `texto` = o detalhe (projeto, consulta salva, JQL, filtro do conector) |
-| `mapa_status` | coluna do quadro (e `descartada`) → status na ferramenta. `null` = sem equivalente: o quadro muda sozinho, a ferramenta não. O caminho inverso (ferramenta → coluna) usa este mapa e, no que faltar, a receita do tipo |
+| `mapa_status` | coluna do quadro (e `descartada`) → status na ferramenta. `null` = sem equivalente: o quadro muda sozinho, a ferramenta não. O caminho inverso (ferramenta → coluna) usa este mapa (duas colunas com o mesmo status → a mais adiantada delas, fora `feito`) e, no que faltar, a receita do tipo |
 | `escrever.criar`, `escrever.editar` | `propor_no_boa_noite` (o `/boa-noite` propõe; grava só com o ok) \| `sob_pedido` (só quando a pessoa pede aquela escrita) \| `nunca` |
 | `regras` | regras da casa, em texto livre. Toda skill que escreve na ferramenta aplica (label obrigatória, o que nunca criar, padrão de título…) |
 | `legado` | ferramentas antigas. `acao: "ignorar"`: chaves com esse `prefixo` não são lidas nem sincronizadas; os cards ficam como estão, até a pessoa tirar |
@@ -282,7 +282,7 @@ A data é a do fuso do quadro (`config/preferencias.fuso`).
                "rodadas": [{"em": "ISO", "recorte": "<slug do projeto>|todos", "agenda": "detalhada|resumida|nenhuma"}] },
   "boa_noite": { "gerado_em": "ISO", "cobre": ["AAAA-MM-DD"],
                  "plano": [{"texto": "...", "tarefa": "<id>|null", "marca": "x|~| "}],
-                 "fechado": ["..."], "pendente": ["..."], "foco_amanha": ["<id>"],
+                 "fechado": ["<título> — <evidência>"], "pendente": ["<id>"], "foco_amanha": ["<id>"],
                  "conversas": [{"id": "local_…|cli:…", "titulo": "...", "resumo": "...", "tarefa": "<id>|null", "acao": "arquivada|mantida|fechada_no_dia"}],
                  "custo": {"modelo": "<modelo dos subagentes>", "subagentes": 0, "tokens_in": 0, "tokens_out": 0, "usd": 0} },
   "fechados": [{"em": "ISO", "conversa": "local_…|cli:…", "titulo": "...", "tarefa": "<id>", "resumo": "...", "status": "feito|esperando"}]

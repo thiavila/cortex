@@ -67,7 +67,7 @@ cada ferramenta, git) é lido antes; a pessoa só confirma, em uma ou duas rodad
      fora (citar no fim).
    - **Código:** com `git` no sistema, a pasta atual é um repositório? (`git -C <cwd> rev-parse --show-toplevel`,
      remoto e branch padrão). Pasta-mãe com vários repositórios → candidata a raiz em `config/projetos.raizes`.
-   - **Conversas:** `app` se `entrada=app` / `get_session` existe, senão `transcritos`.
+   - **Conversas:** `app` se a tool `get_session` existe nesta sessão (app desktop), senão `transcritos`.
 4. **Confirmar** — rodada 1, um `AskUserQuestion` com até 4 perguntas (sem a tool: em texto, numerado), cada uma com o
    que foi descoberto como primeira opção "(Recomendado)":
    1. **O quadro:** `"<Nome sugerido>" · <idioma> · <data de exemplo no locale> · <fuso>` (nome: `Trabalho` com

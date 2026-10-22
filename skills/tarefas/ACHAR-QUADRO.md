@@ -20,7 +20,7 @@ a não ser que a falta mude o resultado para a pessoa (aí uma linha no fim).
 
 | Ferramenta | Sem ela |
 |---|---|
-| `ArtifactData`, `Artifact` | o quadro não é acessível nesta sessão (Codex, Gemini, Claude Code sem login do claude.ai): parar e dizer em uma linha que o quadro precisa de uma sessão com artefatos do Claude (app desktop, ou Claude Code logado na conta do claude.ai) |
+| `ArtifactData`, `Artifact` | o quadro não é acessível nesta sessão (Codex, Gemini, Claude Code sem login do claude.ai, ou um CLI em que os artefatos ainda não estão liberados): parar e dizer em uma linha que o quadro precisa de uma sessão com artefatos do Claude (o app desktop, aba Code) |
 | `get_session` (`"self"`) | a conversa vem do aviso do hook: `sessao=`, `cwd=`, `entrada=`; no CLI a chave é `conversa:cli:<sessao>` e o título é a primeira mensagem. Sem aviso do hook: `cwd` = a pasta atual, conversa sem chave (não ligar) |
 | `set_session_title` | não renomear nada (nem a própria conversa, nem propor `✏️` no `/boa-noite`) |
 | `list_sessions`, `list_events` | conversas pelos transcritos locais: `sh <skills>/tarefas/py <skills>/boa-noite/conversas.py extrair --backend transcritos …` (o `/boa-noite` já usa o script; o `/bom-dia` lê o manifesto dele em vez de `list_events`) |

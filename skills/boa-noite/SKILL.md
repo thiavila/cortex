@@ -158,7 +158,8 @@ Para cada resumo:
   `regras_fechamento` cubra o caso (ex.: "data que passou há semanas sem registro: presumir que aconteceu") — aí
   propor fechar citando a regra.
 - **Gestor → quadro:** item do gestor que veio no Step 1.3 sem card com a chave dele → como o `/bom-dia` Step 1b
-  (análogo claro → ligar; dúvida → ❓; nada → `🆕`; depois, os `pai`). Item **concluído** no gestor → `✅ Fechar` o card
+  (análogo claro → ligar; dúvida → ❓; nada → `🆕`; depois, os `pai`). Item que já chegou concluído e nunca teve card
+  → `🆕` direto em `feito` (só espelha o gestor). Item **concluído** no gestor → `✅ Fechar` o card
   (`resolucao: "concluida"`); **cancelado ou duplicado** → `✅ Descartar` (`resolucao: "descartada"`). Essas mudanças
   só espelham o gestor: não geram 📤.
 - **Filhos de um item do gestor:** todos os filhos de um card com chave do gestor concluídos (ou indo para concluído

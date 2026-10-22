@@ -8,8 +8,9 @@ briefing (`bom-dia`) and an end-of-day wrap-up (`boa-noite`). The skills are wri
 language: when the board is created it detects your language, date format and time zone, and the board page itself
 speaks Portuguese or English.*
 
-> **Beta.** Funciona no macOS, Windows e Linux, no app desktop do Claude (aba Code) e no Claude Code de terminal.
-> Testado de ponta a ponta no macOS; no Windows e no Linux, os scripts foram testados nos caminhos de cada sistema.
+> **Beta.** Feito para o app desktop do Claude (aba Code) no macOS e no Windows. Testado de ponta a ponta no macOS;
+> no Windows e no Linux, os scripts foram testados nos caminhos de cada sistema. O Claude Code de terminal funciona
+> onde a sua conta tiver as ferramentas de artefato no CLI (se `/artifacts` não existir aí, use o app).
 > A página do quadro fala português e inglês; outros idiomas usam o inglês na página e o próprio idioma nas respostas.
 
 ## O que vem no plugin
@@ -27,17 +28,19 @@ E um hook: na primeira mensagem de cada conversa, o Claude liga a conversa a um 
 Entrada). Dá para desligar ou mudar para "perguntar antes" dizendo isso numa conversa.
 
 ## Precisa de
-- **Claude Code logado na sua conta do claude.ai** — no app desktop do Claude (aba Code) ou no terminal. O quadro é
-  um artefato com banco, então precisa das ferramentas de artefato da conta.
+- **O app desktop do Claude (aba Code)**, logado na sua conta do claude.ai. O quadro é um artefato com banco e
+  precisa das ferramentas de artefato, que hoje vêm com o app. No terminal (CLI), só onde elas estiverem liberadas
+  para a sua conta; sem elas, as skills avisam e não escrevem nada.
 - **Python 3.8+**. No macOS vem com as Command Line Tools (`xcode-select --install`); no Windows, instale pelo
   python.org ou pela Microsoft Store (o Cortex acha `python3`, `python` ou `py -3`); no Linux, o da distribuição.
   Node é opcional.
 - Os conectores que você já usa ligados no Claude (agenda, gestor de tarefas, gravador de reuniões, chat, código…).
   Nada é obrigatório: o Cortex usa o que encontrar.
 
-**No app desktop** o Cortex também dá nome curto às conversas, arquiva as que terminaram e abre conversas para o
-plano do dia (se você quiser). **No terminal** essas partes ficam de fora e o resto funciona igual: as conversas
-viram cards com o comando `claude --resume` para retomar.
+Com as ferramentas de sessão do app, o Cortex também dá nome curto às conversas, arquiva as que terminaram e abre
+conversas para o plano do dia (se você quiser). Sem elas (terminal com artefatos, por exemplo) essas partes ficam de
+fora e o resto funciona igual: as conversas são lidas dos transcritos locais e viram cards com o comando
+`claude --resume` para retomar.
 
 ## Instalar
 
