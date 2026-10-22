@@ -478,7 +478,7 @@ function parseQuick(text) {
     .replace(/!(alta|média|media|medium|med|baixa|high|low)\b/giu, (_, x) => { p.prioridade = PRIO_ALIAS[x.toLowerCase()] || "media"; return ""; })
     .replace(/@([\p{L}\p{N}_-]+)/gu, (m, a) => { const k = a.toLowerCase(); if (ESCOPO.areas.some(x => x.id === k)) { p.area = k; } else { p.tags.push("pessoa:" + slug(a)); } return ""; })
     .replace(/\+([\p{L}\p{N}_:-]+)/gu, (_, g) => { const n = normTag(g); if (n) p.tags.push(n); return ""; })
-    .replace(/\^(\d{1,4})([./-])(\d{1,2})(?:\2(\d{1,4}))?(\.?)(?!\d|[./-]\d)/g, (m, a, sep, b, c, ponto) => {
+    .replace(/\^(\d{1,4})([./-]) ?(\d{1,2})(?:\2 ?(\d{1,4}))?(\.?)(?!\d|[./-]\d)/g, (m, a, sep, b, c, ponto) => {
       const v = dataRapida(a, b, c); if (!v) return m; p.prazo = v; return sep === "." ? "" : ponto;
     }).replace(/\s+/g, " ").trim();
   p.projetos = projList(p.projetos); p.projeto = p.projetos[0] || "";

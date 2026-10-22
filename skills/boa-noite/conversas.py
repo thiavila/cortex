@@ -436,6 +436,8 @@ def fontes_transcritos(a, tz, desde, st):
         m = meta_transcrito(registros, tz)
         if m["sdk"] and not a.incluir_sdk:
             continue
+        if m["app"] and not s:
+            continue  # aberta pelo app desktop, mas sem os metadados dele para provar a conta: falha fechada
         meta.update(titulo=meta["titulo"] or m["titulo"], cwd=m["cwd"], branch=m["branch"], ultima=m["ultima"])
         if not tem_cursor and (meta["ultima"] is None or meta["ultima"].date() < desde):
             continue  # primeira leitura só para quem teve atividade a partir de --desde

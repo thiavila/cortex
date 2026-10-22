@@ -122,7 +122,8 @@ cada ferramenta, git) é lido antes; a pessoa só confirma, em uma ou duas rodad
 9. **Lembrar** no atalho local: `sh <skills>/tarefas/py <skills>/tarefas/quadros.py lembrar --url <url> --titulo "Cortex · <Nome>"`.
 10. **Verificar as escolhas por quem usa** (uma linha cada, só o resultado): `get` de `config/preferencias`,
     `config/fontes` e `config/gestor` (gravados como esperado); gestor configurado → a leitura de abertos da receita
-    uma vez (quantos itens); agenda → os eventos de hoje (quantos); conversas → `conversas.py extrair --backend
+    uma vez (quantos itens); agenda → os eventos de hoje (quantos); conversas (backend `app` ou `transcritos`;
+    `nenhum` → pular) → `conversas.py extrair --backend
     <backend> --sessao <id desta conversa> --saida <scratchpad>/conv-teste` (sem `--quadro` e sem `confirmar`: só para
     ver que funciona); `recorrentes.py` com uma pasta vazia (o Python roda). O que falhar → dizer o quê e como
     resolver, sem desfazer o quadro.
