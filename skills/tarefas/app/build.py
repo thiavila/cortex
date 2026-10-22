@@ -2,16 +2,21 @@
 """Monta a página do quadro a partir de board-src.html.
 
 Uso: python3 build.py --titulo "Tarefas Pessoais" --out /caminho/quadro.html
-                      [--tema-arquivo /caminho/tema.css] [--fontes "https://fonts.googleapis.com/css2?..."]
+                      [--tema-arquivo /caminho/tema.css]
+                      [--fontes "https://fonts.googleapis.com/css2?..." | --sem-fontes-externas]
 Sem --tema-arquivo, sai o tema neutro (style-base.css). Com ele, o CSS do arquivo entra depois da base e
 sobrescreve os tokens (--bg, --accent, --f-display…): é o tema da marca da pessoa (quadro-tarefas § Tema).
 --fontes acrescenta uma folha do Google Fonts (a única origem de estilo externa que o artefato aceita).
-O escopo (nome, áreas) NÃO vai no HTML: a página lê de config/preferencias no banco.
+--sem-fontes-externas (config/tema.fontes_externas: false): a página não carrega nada de fora, nem o Google Fonts
+nem os preconnect; os tokens de fonte caem nas fontes do sistema. Não combina com --fontes.
+O escopo (nome, áreas, idioma, locale, fuso) NÃO vai no HTML: a página lê de config/preferencias no banco.
 """
 import argparse, os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FONTES_BASE = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">'
+FONTES_BASE = '<link rel="preconnect" href="https://fonts.googleapis.com">\n' \
+              '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' \
+              '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">'
 GOOGLE_FONTS = "https://fonts.googleapis.com/css2?"
 
 
@@ -47,9 +52,13 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--tema-arquivo", help="CSS que sobrescreve os tokens da base (tema da marca)")
     ap.add_argument("--fontes", help="URL do Google Fonts (css2) com as fontes do tema")
+    ap.add_argument("--sem-fontes-externas", action="store_true",
+                    help="não carrega fonte de fora (sem Google Fonts nem preconnect); usa as fontes do sistema")
     a = ap.parse_args()
+    if a.sem_fontes_externas and a.fontes:
+        ap.error("--sem-fontes-externas não combina com --fontes")
     rd = lambda f: open(os.path.join(HERE, f), encoding="utf-8").read()
-    fontes = FONTES_BASE
+    fontes = "" if a.sem_fontes_externas else FONTES_BASE
     if a.fontes:
         if not a.fontes.startswith(GOOGLE_FONTS) or re.search(r'["<>\s]', a.fontes):
             sys.exit("--fontes precisa ser uma URL https://fonts.googleapis.com/css2?... sem aspas nem espaços")
