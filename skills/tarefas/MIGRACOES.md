@@ -32,7 +32,10 @@ funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (cam
   - `locale` = `idioma`, exceto `en` → `en-GB`: a página da v3 lia e mostrava datas sempre como dia/mês, e `en-US`
     trocaria o sentido de `^10/11` nos atalhos. Dizer em uma linha que dá para mudar para `en-US`. `fuso` = o do sistema (`sh <skills>/tarefas/py <skills>/tarefas/sistema.py` → `fuso`; sem ele,
     não gravar: a página e os scripts usam o do sistema); `area_padrao` = o id da primeira área (era o que a página
-    usava).
+    usava). `semana_inicia` = `1` (a página da v3 mostrava a semana de segunda a domingo, em qualquer idioma).
+  - `titulo_conversa` = `{automatico: true, max: 25, manter: []}`: a v3 dava nome curto à conversa nova a não ser que
+    o campo dissesse `false`; a v4 só dá com `true`. Se o campo já existe, só acrescentar o que faltar (`automatico`
+    ausente → `true`).
   - `automacao` = `{encaminhar_plano: "chips", renomear_conversas: true, arquivar_conversas: "propor",
     ancora_memoria: true, linha_claude_md: true}`.
   - `codigo` = `{usa_git: true, remoto: "origin", branch_base: null, ruido: [".claude/skills", ".gemini/skills",
@@ -42,21 +45,33 @@ funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (cam
     "Conversa que terminou esperando o usuário e ele não voltou = encerrada" e "Tarefa com data que passou há semanas
     sem registro: presumir que aconteceu e propor fechar".
   - `agendas` (se houver) passa para `config/fontes.agenda.calendarios` e sai daqui.
+  - `fontes.repos` (se houver; a v3 guardava aqui os padrões de pasta de código) sai daqui e vira raiz, abaixo.
+- `config/projetos`: sem `raizes` (ou sem o documento), gravar `raizes` = as raízes padrão da v3: a home, a pasta
+  `Github` da home se existir, e a pasta-mãe de cada padrão de `preferencias.fontes.repos` (`~/code/Projetos/**` →
+  `~/code/Projetos`), em caminho absoluto, só as que existem. Sem isso, o `/bom-dia` passaria a perguntar "só este
+  projeto?" em pastas onde a v3 nunca perguntava. `itens` fica como está (ou `{}`).
 - `config/fontes`:
   - `{versao: 1, texto}` → `{versao: 2, texto}` com o mesmo `texto`, mais `agenda.calendarios` (das `agendas` acima) e
     `conversas.backend` (`app` no app desktop, senão `transcritos`). Com um conector de reuniões ligado na sessão,
-    `reunioes.conector` = ele (a v3 lia o Granola por padrão quando estava ligado). Os demais campos ficam ausentes:
+    `reunioes.conector` = ele (a v3 lia o Granola por padrão quando estava ligado), a não ser que o `texto` descreva
+    outra fonte de reuniões: aí vale o `texto` e `reunioes` fica ausente (perguntar na próxima `/quadro-tarefas fontes`). Os demais campos ficam ausentes:
     o `texto` continua valendo para o que ele descreve.
-  - Sem `config/fontes` e com o arquivo local legado `<dados>/tarefas/fontes-<escopo>.md` → `texto` = o conteúdo dele
-    (é da própria pessoa; dizer em uma linha que foi para o quadro). O arquivo fica onde está.
+  - Sem `config/fontes` e com o arquivo local legado `fontes-<escopo>.md` → `texto` = o conteúdo dele (é da própria
+    pessoa; dizer em uma linha que foi para o quadro). Procurar em `<dados>/tarefas/` e, se não houver, na pasta de
+    antes da v0.3 (`caminhos.py --tudo` → `legado`, `<legado>/tarefas/`), como já fazem o `quadros.py` e o hook. O
+    arquivo fica onde está.
 - Chaves `gcal:<eventId>` não são reescritas: valem como `agenda:<eventId>`.
 - **Página:** a página publicada na v3 é a antiga (só português, sem fuso, sem conversas do CLI). Remontar e publicar
-  na mesma URL (`quadro-tarefas` § Atualizar a página) e gravar `config/schema.pagina`. Sem a tool `Artifact` nesta
+  na mesma URL (`quadro-tarefas` § Atualizar a página) e gravar `config/schema.pagina`. Se `config/preferencias.tema`
+  existe com um valor diferente de `padrao` (tema embutido por nome, de antes do `config/tema`) e não há `config/tema`,
+  não remontar ainda: dizer em uma linha que o tema antigo não vem no plugin e oferecer o `quadro-tarefas` § Tema (o
+  site da marca, um guia, ou o CSS antigo, se a pessoa o tiver). Sem resposta, migrar o banco e manter a página
+  publicada. `preferencias.tema` sai quando o `config/tema` for gravado. Sem a tool `Artifact` nesta
   sessão, migrar o banco mesmo assim e dizer em uma linha que a página se atualiza no próximo `/quadro-tarefas`.
 
 ## Restos de versões antigas
 - **`DIARIO-*.md`:** diários em arquivo, de antes do `dias/` no quadro. Se o quadro estiver inacessível e as fontes
   disserem onde há um, ler; nunca gravar nele quando o quadro responde.
-- **`<dados>/tarefas/fontes-<escopo>.md`:** fontes em arquivo local. Lido só por quadro sem `config/fontes` (e migrado
+- **`<dados>/tarefas/fontes-<escopo>.md`** (ou em `<legado>/tarefas/`): fontes em arquivo local. Lido só por quadro sem `config/fontes` (e migrado
   na v3 → v4).
 - **`config/preferencias.export`:** ver v1 → v2.
