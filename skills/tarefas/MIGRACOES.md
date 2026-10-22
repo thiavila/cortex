@@ -29,7 +29,8 @@ semeado (nasce quando a pessoa cadastra uma pasta).
 A v4 tira das skills o que era o jeito de uma pessoa e põe em `config/preferencias`. Para o quadro migrado **continuar
 funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (campos que já existirem não são tocados):
 - `config/preferencias`:
-  - `locale` = `idioma`; `fuso` = o do sistema (`sh <skills>/tarefas/py <skills>/tarefas/sistema.py` → `fuso`; sem ele,
+  - `locale` = `idioma`, exceto `en` → `en-GB`: a página da v3 lia e mostrava datas sempre como dia/mês, e `en-US`
+    trocaria o sentido de `^10/11` nos atalhos. Dizer em uma linha que dá para mudar para `en-US`. `fuso` = o do sistema (`sh <skills>/tarefas/py <skills>/tarefas/sistema.py` → `fuso`; sem ele,
     não gravar: a página e os scripts usam o do sistema); `area_padrao` = o id da primeira área (era o que a página
     usava).
   - `automacao` = `{encaminhar_plano: "chips", renomear_conversas: true, arquivar_conversas: "propor",
@@ -49,6 +50,9 @@ funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (cam
   - Sem `config/fontes` e com o arquivo local legado `<dados>/tarefas/fontes-<escopo>.md` → `texto` = o conteúdo dele
     (é da própria pessoa; dizer em uma linha que foi para o quadro). O arquivo fica onde está.
 - Chaves `gcal:<eventId>` não são reescritas: valem como `agenda:<eventId>`.
+- **Página:** a página publicada na v3 é a antiga (só português, sem fuso, sem conversas do CLI). Remontar e publicar
+  na mesma URL (`quadro-tarefas` § Atualizar a página) e gravar `config/schema.pagina`. Sem a tool `Artifact` nesta
+  sessão, migrar o banco mesmo assim e dizer em uma linha que a página se atualiza no próximo `/quadro-tarefas`.
 
 ## Restos de versões antigas
 - **`DIARIO-*.md`:** diários em arquivo, de antes do `dias/` no quadro. Se o quadro estiver inacessível e as fontes

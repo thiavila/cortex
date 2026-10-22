@@ -170,7 +170,8 @@ memórias que mandem tarefa para outro destino), em silêncio quando nada mudou.
 ### Step 0b — Recorrentes que chegaram
 `ArtifactData list recorrentes` (com `out_dir: <scratchpad>/rec`) e `get indice/ativos` (`out_dir`), depois
 `sh <skills>/tarefas/py <skills>/tarefas/recorrentes.py --dir <scratchpad>/rec --indice <indice.json> --saida <scratchpad>/rec-plano.json --idioma <idioma> --locale <locale> --fuso <fuso> --area-padrao <area_padrao>`
-(sem `fuso`/`locale` nas preferências, omitir: o script usa os do sistema).
+(sem `fuso`/`locale` nas preferências, omitir: o script usa os do sistema; saída 3 = o Python não carrega esse fuso:
+de novo sem `--fuso`, avisando em uma linha).
 Para cada item: `criar` → conferir com `get` que `tasks/<id>` está livre e `set` do card (`criado_em`/`atualizado_em`
 e o `em` do histórico = agora); `anotar` → linha no `historico` do card aberto. Nos dois, `update recorrentes/<rid>`
 `{ultima: <ocorrencia>}` e o índice, num `batch` só. Sem coleção `recorrentes` → pular calado. Os cards gerados entram no
@@ -199,7 +200,8 @@ Fazer as chamadas independentes na mesma rodada.
   Sem `list_sessions` (CLI): `sh <skills>/tarefas/py <skills>/boa-noite/conversas.py extrair --backend transcritos
   --sessao cli:<id desta conversa> --quadro <id do artefato> --saida <scratchpad>/conv-bd --desde <3 dias atrás>
   --fuso <fuso>` e ler, do fim de cada `.txt`, a última fala do assistente (sem `confirmar`: os cursores são do
-  `/boa-noite`). Com `conversas.backend: "nenhum"`, pular.
+  `/boa-noite`; saída 3 = fuso não suportado pelo Python: de novo sem `--fuso`). Com `conversas.backend: "nenhum"`,
+  pular.
 - **Rotinas:** com `list_scheduled_tasks`: para cada uma do escopo, `list_task_runs` recente: apontar execução que
   falhou ou que deixou alerta. Sem a tool, pular.
 

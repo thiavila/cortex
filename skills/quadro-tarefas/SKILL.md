@@ -32,7 +32,10 @@ Pacotes de import/export (gerados pela `tarefas-io`): `<dados>/tarefas-exports/q
 1. Seguir `ACHAR-QUADRO.md` § Busca completa (lista de artefatos da conta).
    - **Achou:** o quadro existe nesta conta. Abrir no navegador (chamar `/quadro-tarefas` já é o pedido de abrir), como
      em `ACHAR-QUADRO.md` § 0. Responder com o link e uma linha de estado (do `indice/ativos`: N abertas, N na
-     Entrada). `config/schema.versao` abaixo de 4 → as migrações (`MIGRACOES.md`) antes. Sem `config/gestor` ou com ele
+     Entrada). `config/schema.versao` abaixo de 4 → as migrações (`MIGRACOES.md`) antes, inclusive a remontagem da
+     página (§ Atualizar a página).
+     Página publicada por uma versão mais antiga do plugin (`config/schema.pagina` ausente ou menor que a `version` do
+     `.claude-plugin/plugin.json` do plugin) → § Atualizar a página, dizendo em uma linha o que mudou. Sem `config/gestor` ou com ele
      pendente → uma linha oferecendo configurar ou completar (§ Gestor). Fim. Não recriar.
    - **Argumento `gestor`:** achou o quadro → só o § Gestor (reconfigurar o que a pessoa pedir).
    - **Argumento `fontes`:** achou o quadro → só os passos 2–4 do § 2 para `config/fontes` (e `config/projetos`),
@@ -103,15 +106,19 @@ cada ferramenta, git) é lido antes; a pessoa só confirma, em uma ou duas rodad
      pessoa quiser).
    - `config/gestor` (§ Gestor; `{tipo: "nenhum"}` se a pessoa não usa; `pendente: true` se os detalhes ficaram para
      depois).
-   - `config/schema` `{formato: "quadro-tarefas", versao: 4, escopo, criado_em, migracoes: []}`,
+   - `config/schema` `{formato: "quadro-tarefas", versao: 4, pagina: <version do plugin.json>, escopo, criado_em, migracoes: []}`,
      `indice/ativos` `{itens: {}, atualizado_em}` e `config/tema` com o tema efetivo, se ele não for o neutro (§ Tema,
      passo 6), ou `{fontes_externas: false}` se for o caso.
-   Com pacote e `--com-config`, os documentos do pacote entram no passo 8 e depois os reconfirmados do passo 4 são
-   regravados por cima (`config/fontes`, `config/gestor`, `config/projetos`).
+   Com pacote e `--com-config`, os documentos do pacote entram no passo 8 e depois **tudo o que a pessoa confirmou no
+   passo 4 é regravado por cima**: `config/fontes`, `config/gestor`, `config/projetos` e, em `config/preferencias`,
+   os campos confirmados ou descobertos nesta criação (nome, áreas, `idioma`, `locale`, `fuso`, `semana_inicia`,
+   `card_por_conversa`, `titulo_conversa`, `fechar`, `automacao`, `codigo`). Do pacote ficam só os campos que ninguém
+   confirmou aqui (`tags_conhecidas`, `regras_fechamento`, `notas`, prazos…).
 8. **Importar** o pacote seguindo a `tarefas-io` § Import (prévia → ok → gravar). Depois do import com `--com-config`:
-   conferir que `config/schema` tem `formato` e a `versao` atual (senão `MIGRACOES.md`), tirar `principal` das
-   preferências importadas (o desempate é decidido nesta conta) e regravar `config/tema` com o tema efetivo do passo 5
-   (ou apagá-lo, se o efetivo for o neutro), para o banco bater com a página publicada.
+   conferir que `config/schema` tem `formato`, a `versao` atual (senão `MIGRACOES.md`) e `pagina`; tirar `principal`
+   das preferências importadas (o desempate é decidido nesta conta); regravar as escolhas confirmadas (passo 7) e
+   `config/tema` com o tema efetivo do passo 5 (ou apagá-lo, se o efetivo for o neutro), para o banco bater com a
+   página publicada e com o que a pessoa acabou de escolher.
 9. **Lembrar** no atalho local: `sh <skills>/tarefas/py <skills>/tarefas/quadros.py lembrar --url <url> --titulo "Cortex · <Nome>"`.
 10. **Verificar as escolhas por quem usa** (uma linha cada, só o resultado): `get` de `config/preferencias`,
     `config/fontes` e `config/gestor` (gravados como esperado); gestor configurado → a leitura de abertos da receita
@@ -169,6 +176,13 @@ pessoa, em geral a da empresa dela. Nada de marca vem pronto no pacote: o tema �
    Mostrar o print à pessoa e dizer em uma linha o que foi seguido (ex.: "azul e fonte do site da empresa; a fonte do
    logo é paga, usei a Inter no lugar"). Para voltar ao neutro: montar sem `--tema-arquivo`, publicar na mesma URL e
    apagar `config/tema`.
+
+## Atualizar a página (quadro que já existe)
+Quando a página publicada é de uma versão mais antiga do plugin (ou numa migração): `get config/tema` → montar com o
+`build.py` como no § 2 passo 5 (com `--tema-arquivo` do `css` gravado, `--fontes` ou `--sem-fontes-externas` conforme
+o `config/tema`; sem ele, neutro) e o título atual do artefato → `Artifact read` da URL → publish do HTML novo **na
+mesma URL**, sem mudar `capabilities` → `update config/schema` com `pagina` = a versão do plugin. O banco e as tarefas
+ficam como estão.
 
 ## Gestor — configurar `config/gestor`
 Contrato em `SCHEMA.md` § `config/gestor`; receitas em `<skills>/tarefas/referencias/gestores/<tipo>.md`.

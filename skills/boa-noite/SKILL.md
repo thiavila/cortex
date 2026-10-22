@@ -81,7 +81,10 @@ plano: usar o `foco_amanha` do último fechamento.
 1. **Conversas → texto novo:** `sh <skills>/tarefas/py <skills>/boa-noite/conversas.py extrair --sessao <id desta conversa> --quadro <id do artefato> --saida <scratchpad>/conv --desde <início da janela> --fuso <fuso>`
    (`--sessao` = o `sessionId` de `get_session "self"` no app, que limita às conversas desta conta; no CLI, `cli:<id>`
    do aviso do hook. `--backend auto` escolhe sozinho entre as conversas do app e os transcritos locais;
-   `config/fontes.conversas.backend` fixa a escolha. Sem quadro, omitir `--quadro`; sem `fuso`, omitir `--fuso`.)
+   `config/fontes.conversas.backend` fixa a escolha (`app` ou `transcritos` → `--backend <ele>`; `nenhum` → pular
+   este passo e a varredura das abertas: sem conversas na rodada). Sem quadro, omitir `--quadro`; sem `fuso`, omitir
+   `--fuso`. Saída 3 = o Python não carrega esse fuso: rodar de novo sem `--fuso` e dizer em uma linha que as datas
+   desta rodada seguem o fuso do sistema.)
    Gera, por conversa, um ou mais `.txt` (`arquivos`, partes de até 14 mil caracteres, nada cortado) só com o
    trecho ainda não resumido (cursor por conversa) e `manifesto.json` (id, título, rotina, repetida, link,
    `cursor_perdido`, `primeira_leitura`). Conversa aberta que nunca foi resumida entra **inteira**, seja qual for a
@@ -141,9 +144,9 @@ Para cada resumo:
   🗄️ e o relatório só diz quais acabaram): `acao` do resumo, conferida antes de arquivar. Com `codigo.usa_git` e a
   conversa num repositório: `git status` da pasta dela (ignorando `codigo.ruido`) e
   `git log <remoto>/<base>..HEAD` (`codigo.remoto`, `codigo.branch_base`; base `null` = a branch padrão do remoto).
-  Arquivo novo fora do git numa worktree → com `codigo.copiar_fora_do_git`, copiar para o mesmo caminho no checkout
-  principal (sem sobrescrever; se existir diferente, perguntar); sem ela, ⏸️ com o motivo. Commit sem push → não
-  arquivar. PR aberto → não arquivar.
+  Arquivo novo fora do git numa worktree → com `codigo.copiar_fora_do_git`, a linha 🗄️ diz a cópia (`copiar <origem>
+  → <destino>`), que só é feita no Step 5, depois do ok (sem sobrescrever; destino existente e diferente → ❓); sem
+  ela, ⏸️ com o motivo. Commit sem push → não arquivar. PR aberto → não arquivar.
 - **Varredura das abertas (toda rodada, sem subagente; só no app, com `list_sessions`):** toda conversa não arquivada
   que não veio no manifesto (já resumida antes, sem texto novo) volta à proposta com evidência barata: `prState` e,
   com git, `git status` e o `git log` acima. PR mergeado/fechado → 🗄️; PR aberto ou commit sem push → ⏸️ (com o
@@ -226,6 +229,8 @@ Num ou mais `ArtifactData batch` (cada tarefa existente com o `if_version` lido)
 - **Outras ferramentas:** só o que as fontes do escopo mandam e só o que estava na proposta aprovada.
 - **Nomes:** `set_session_title` com o `sessionId` de cada `✏️` aprovado (e o mesmo título curto em
   `conversas[].titulo` no card).
+- **Cópias fora do git** que estavam nas linhas 🗄️ aprovadas: fazer antes de arquivar (sem sobrescrever; falhou →
+  não arquivar aquela conversa e dizer no relatório).
 - **Conversas:** `archive_session` nas aprovadas. Negado pelo app → listar no relatório para arquivar pela barra lateral.
 Escrita que falhar: seguir com as outras e dizer no relatório o que não foi gravado.
 

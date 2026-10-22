@@ -266,7 +266,9 @@ de várias tarefas intermediárias no quadro.
 - Nunca vai para o gestor: link `claude://`, conteúdo de conversa, dado pessoal ou segredo.
 
 ### `config/schema`
-`{ "formato": "quadro-tarefas", "versao": 4, "escopo": "trabalho", "criado_em": "ISO", "migracoes": [] }`
+`{ "formato": "quadro-tarefas", "versao": 4, "pagina": "0.3.0", "escopo": "trabalho", "criado_em": "ISO", "migracoes": [] }`
+`pagina` = a versão do plugin que montou a página publicada; mais antiga que o plugin → `quadro-tarefas` § Atualizar a
+página.
 `formato` marca o artefato como quadro: é por ele que as skills reconhecem o quadro na lista de artefatos da
 conta (`ACHAR-QUADRO.md`), seja qual for o título. Quadro novo nasce na versão atual, com `migracoes: []`.
 `versao` abaixo de 4 → as migrações de `MIGRACOES.md`, em ordem, na primeira escrita da rodada.

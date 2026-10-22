@@ -43,7 +43,8 @@ monitor, um agente que fica rodando); só uma etapa terminou e o trabalho segue;
 2. **Travas** (qualquer uma → atualizar o card, NÃO arquivar, dizer o motivo em uma linha):
    - só com `config/preferencias.codigo.usa_git` e a pasta num repositório git: mudança pendente no `git status` (fora
      os caminhos de `codigo.ruido`), arquivo novo fora do git numa worktree que não foi copiado (com
-     `codigo.copiar_fora_do_git`, copiar para o mesmo caminho no checkout principal sem sobrescrever; senão, avisar),
+     `codigo.copiar_fora_do_git`, e só depois do pedido ou do sim para fechar, copiar para o mesmo caminho no checkout
+     principal sem sobrescrever; senão, avisar),
      ou commit sem push (`git log <remoto>/<base>..HEAD`, com `codigo.remoto` e `codigo.branch_base`; base `null` = a
      branch padrão do remoto);
    - pedido de mudança (PR/MR) aberto e não mergeado, quando houver (o card vai para `esperando`, com o link em `links`);

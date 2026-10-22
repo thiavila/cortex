@@ -21,7 +21,7 @@ Textos do export (Markdown, prévia, histórico) no idioma do quadro: `--idioma 
 
 ## Export
 1. Baixar com `ArtifactData list` + `out_dir: <scratchpad>/exp-<escopo>` as coleções `tasks`, `dias`,
-   `arquivo` e `config` (`query.limit: 1000`; se vier `next_cursor`, continuar).
+   `arquivo`, `recorrentes` e `config` (`query.limit: 1000`; se vier `next_cursor`, continuar).
 2. `sh <skills>/tarefas/py <skills>/tarefas/io.py export --idioma <idioma> --dir <scratchpad>/exp-<escopo> --escopo <escopo> --out <dados>/tarefas-exports/quadro-tarefas-<escopo>-<AAAA-MM-DD>.json [--csv … --md …]`
 3. **Para outro gestor de tarefas** (padrão: o de `config/gestor`; ou o que o usuário disser):
    - Gestor configurado: receita `<skills>/tarefas/referencias/gestores/<tipo>.md` (no `generico`, a `receita` do
@@ -62,7 +62,7 @@ Textos do export (Markdown, prévia, histórico) no idioma do quadro: `--idioma 
    `indice-merge.json` (`data: {itens: …, atualizado_em}` + `if_version`). Para as tarefas **atualizadas**, a entrada
    do índice é refeita a partir do card final (depois da união): `p` = `projeto`, `ps` = `projetos`, `tags`, `k` =
    `chaves`, `s`, `t`, `pai`, `u`. O `indice-merge.json` traz só uma prévia dessa união.
-   `--com-config` (dias/arquivo/config) **substitui** documentos: só em quadro novo, logo depois do `quadro-tarefas`.
+   `--com-config` (dias/arquivo/recorrentes/config) **substitui** documentos: só em quadro novo, logo depois do `quadro-tarefas`.
 7. Conferir com um `list` de `tasks` e responder com as contagens (e os conflitos que ficaram de fora).
 
 ## Regras
