@@ -1,23 +1,58 @@
 #!/usr/bin/env python3
 """Import/export do quadro de tarefas (modelo v1, ver SCHEMA.md).
 
+Roda com `sh <skills>/tarefas/py io.py …`. `--idioma` (padrão pt-BR; pt* = português, outro = inglês) define a
+língua dos textos gerados: Markdown do export, prévia do plan e linhas de histórico do import.
+
 export: junta os documentos baixados com `ArtifactData list ... out_dir=<dir>` num pacote.
-  python3 io.py export --dir <out_dir> --escopo pessoal --out pacote.json [--csv x.csv] [--md x.md]
+  io.py export --dir <out_dir> --escopo <escopo> --out pacote.json [--csv x.csv] [--md x.md] [--idioma en]
 
 plan: compara um pacote (ou uma lista de tarefas vinda de outro sistema, já no formato v1)
   com o índice atual e gera os arquivos de escrita + uma prévia legível.
-  python3 io.py plan --entrada pacote.json --indice indice.json --saida <dir> [--com-config]
+  io.py plan --entrada pacote.json --indice indice.json --saida <dir> [--com-config] [--idioma en]
   -> <dir>/preview.md, <dir>/writes-N.json (lotes de até 45 escritas, com file_path absolutos)
 
 Casamento: mesma chave externa (`chaves`) = mesma tarefa (atualiza); senão, mesmo id; senão, nova.
 """
-import argparse, csv, datetime as dt, glob, json, os, re, sys, unicodedata
+import argparse, csv, datetime as dt, glob, hashlib, json, os, re, sys, unicodedata
 
+IDIOMA = "pt-BR"  # o --idioma da linha de comando (main)
 NOW = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 CAMPOS = ["titulo", "status", "resolucao", "prioridade", "area", "projeto", "projetos", "tags", "chaves", "pai", "relacionadas",
           "prazo", "proximo_passo", "contexto", "resumo", "links", "conversas", "historico", "fonte", "auto",
           "criado_em", "atualizado_em", "concluido_em"]
 STATUS = {"entrada", "a_fazer", "fazendo", "esperando", "feito"}
+
+TXT = {
+    "pt": {"md_titulo": "# Quadro {escopo} — exportado em {data}", "sem_projeto": "Sem projeto", "prazo": "prazo {d}",
+           "status": {"entrada": "Entrada", "a_fazer": "A fazer", "fazendo": "Fazendo", "esperando": "Esperando", "feito": "Feito"},
+           "importada": "Importada", "atualizada": "Atualizada por import",
+           "prev_titulo": "# Prévia do import ({novas} novas, {atualizadas} atualizadas, {extras} docs de dias/arquivo/config, {conflitos} conflitos)",
+           "prev_novas": "## Novas",
+           "prev_atualizadas": "## Atualizadas (mesma chave; só título/status/prazo/prioridade/projeto/próximo passo, arrays unidos)",
+           "prev_conflitos": "## Conflitos (não entram)",
+           "prev_extras": "⚠️ Os docs de dias/arquivo/config SUBSTITUEM os existentes: use só em quadro novo.",
+           "prev_indice": "Índice: `update` em indice/ativos com {p} (merge por id).",
+           "conf_chave": "`{t}`: chave {k} repetida no arquivo (fica só a primeira)",
+           "conf_mesma": "`{t}` e `{o}` casam com a mesma tarefa `{a}` (fica só a primeira)",
+           "sem_titulo": "(sem título)"},
+    "en": {"md_titulo": "# Board {escopo} — exported on {data}", "sem_projeto": "No project", "prazo": "due {d}",
+           "status": {"entrada": "Inbox", "a_fazer": "To do", "fazendo": "Doing", "esperando": "Waiting", "feito": "Done"},
+           "importada": "Imported", "atualizada": "Updated by import",
+           "prev_titulo": "# Import preview ({novas} new, {atualizadas} updated, {extras} days/archive/config docs, {conflitos} conflicts)",
+           "prev_novas": "## New",
+           "prev_atualizadas": "## Updated (same key; only title/status/due/priority/project/next step, arrays merged)",
+           "prev_conflitos": "## Conflicts (not imported)",
+           "prev_extras": "⚠️ The days/archive/config docs REPLACE the existing ones: use only on a new board.",
+           "prev_indice": "Index: `update` indice/ativos with {p} (merge by id).",
+           "conf_chave": "`{t}`: key {k} repeated in the file (only the first one is kept)",
+           "conf_mesma": "`{t}` and `{o}` match the same task `{a}` (only the first one is kept)",
+           "sem_titulo": "(untitled)"},
+}
+
+
+def txt(idioma):
+    return TXT["pt" if str(idioma or "pt-BR").lower().startswith("pt") else "en"]
 
 
 def slug(s):
@@ -27,10 +62,13 @@ def slug(s):
 
 
 def slug_projeto(s):
-    """Slug de projeto/tag, igual ao `slug()` da página do quadro (só a-z, 0-9 e ":")."""
+    """Slug de projeto/tag, igual ao `slug()` da página do quadro (SCHEMA § Slugs): NFD, sem marcas combinantes,
+    minúsculas, e tudo que não é letra ou número de qualquer escrita (\\p{L}, \\p{N}) nem `:` vira `-`.
+    `Gestão` → `gestao`; `项目` → `项目`; `Проект` → `проект`."""
     s = unicodedata.normalize("NFD", str(s or ""))
-    s = re.sub("[\u0300-\u036f]", "", s).lower().strip()  # mesma faixa do JS
-    return re.sub(r"[^a-z0-9:]+", "-", s).strip("-")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn").lower().strip()
+    s = "".join(c if c == ":" or unicodedata.category(c)[0] in "LN" else "-" for c in s)
+    return re.sub(r"-+", "-", s).strip("-")
 
 
 def lista_projetos(v):
@@ -64,7 +102,7 @@ def load_dir(d, colecao):
 def normaliza(t, nomes=None):
     """Completa campos faltantes e corrige valores fora do contrato."""
     t = dict(t)
-    t.setdefault("titulo", "(sem título)")
+    t.setdefault("titulo", txt(IDIOMA)["sem_titulo"])
     if t.get("status") not in STATUS:
         t["status"] = "entrada"
     t.setdefault("prioridade", "media")
@@ -112,14 +150,15 @@ def cmd_export(a):
                             t.get("prazo") or "", t.get("proximo_passo"), t.get("resumo"), t.get("criado_em"),
                             t.get("atualizado_em"), t.get("concluido_em") or ""])
     if a.md:
-        linhas, atual = [f"# Quadro {a.escopo} — exportado em {NOW[:10]}", ""], None
+        T = txt(a.idioma)
+        linhas, atual = [T["md_titulo"].format(escopo=a.escopo, data=NOW[:10]), ""], None
         for i, t in rows:
-            p = t.get("projeto") or "Sem projeto"
+            p = t.get("projeto") or T["sem_projeto"]
             if p != atual:
                 linhas += ["", f"## {p}", ""]
                 atual = p
             x = "x" if t.get("status") == "feito" else " "
-            extra = " · ".join(filter(None, [t.get("status"), t.get("prazo") and "prazo " + t["prazo"],
+            extra = " · ".join(filter(None, [T["status"].get(t.get("status"), t.get("status")), t.get("prazo") and T["prazo"].format(d=t["prazo"]),
                                              " ".join(t.get("tags") or [])]))
             linhas.append(f"- [{x}] **{t.get('titulo')}** ({extra})" + (f"\n  - → {t['proximo_passo']}" if t.get("proximo_passo") else ""))
         open(a.md, "w", encoding="utf-8").write("\n".join(linhas) + "\n")
@@ -132,10 +171,16 @@ CAMPOS_IMPORT = ["titulo", "status", "resolucao", "prioridade", "prazo", "projet
 ARRAYS_UNIAO = ["chaves", "tags", "links", "projetos"]  # numa tarefa existente: unir com o que já existe (projetos: o principal da tarefa fica)
 
 
+def _ascii_id(s):
+    return slug(s).replace("/", "-").replace(".", "-")[:40].strip("-")
+
+
 def id_seguro(raw, fallback):
+    """Id de documento: sempre ASCII. Título só em outra escrita (`项目`) → `t-<hash curto do título>`."""
     i = str(raw or "")
     if not ID_OK.match(i) or i in (".", ".."):
-        i = slug(i or fallback).replace("/", "-").replace(".", "-")[:40].strip("-") or "tarefa"
+        i = _ascii_id(i or fallback) or _ascii_id(fallback) or \
+            "t-" + hashlib.sha1(str(fallback or raw or "").encode("utf-8")).hexdigest()[:8]
     return i
 
 
@@ -147,6 +192,7 @@ def dentro(base, nome):
 
 
 def cmd_plan(a):
+    T = txt(a.idioma)
     ent = json.load(open(a.entrada, encoding="utf-8"))
     if isinstance(ent, dict) and "tasks" in ent:
         brutos = [dict(t, id=i) for i, t in ent["tasks"].items()]
@@ -174,11 +220,11 @@ def cmd_plan(a):
             alvo = origem  # mesmo id e nenhuma chave dizendo o contrário
         repetida = next((k for k in t["chaves"] if k in chaves_lote), None)
         if repetida:
-            conflitos.append(f"`{t['titulo']}`: chave {repetida} repetida no arquivo (fica só a primeira)")
+            conflitos.append(T["conf_chave"].format(t=t["titulo"], k=repetida))
             continue
         if alvo:
             if alvo in destinos:
-                conflitos.append(f"`{t['titulo']}` e `{destinos[alvo]}` casam com a mesma tarefa `{alvo}` (fica só a primeira)")
+                conflitos.append(T["conf_mesma"].format(t=t["titulo"], o=destinos[alvo], a=alvo))
                 continue
             doc_id = alvo
         else:
@@ -203,7 +249,7 @@ def cmd_plan(a):
             # histórico e manda `update` com o if_version lido (ver tarefas-io § Import).
             dados = {k: t[k] for k in CAMPOS_IMPORT if k != "projeto" and t.get(k) not in (None, "")}  # projeto vem por _unir.projetos
             dados["_unir"] = {k: t[k] for k in ARRAYS_UNIAO if t.get(k)}
-            dados["_historico"] = "Atualizada por import"
+            dados["_historico"] = T["atualizada"]
             json.dump(dados, open(p, "w", encoding="utf-8"), ensure_ascii=False)
             writes.append({"op": "update", "collection": "tasks", "doc_id": doc_id, "file_path": p, "if_version": "PREENCHER"})
             atualizados.append((doc_id, t["titulo"]))
@@ -215,7 +261,7 @@ def cmd_plan(a):
                           "tags": uniao(ent_i.get("tags"), t["tags"]), "k": uniao(ent_i.get("k"), t["chaves"]), "u": NOW})
             idx[doc_id] = ent_i
         else:
-            t["historico"] = ([{"em": NOW, "texto": "Importada", "por": "io"}] + t["historico"])[:50]
+            t["historico"] = ([{"em": NOW, "texto": T["importada"], "por": "io"}] + t["historico"])[:50]
             json.dump(t, open(p, "w", encoding="utf-8"), ensure_ascii=False)
             writes.append({"op": "set", "collection": "tasks", "doc_id": doc_id, "file_path": p})
             novos.append((doc_id, t["titulo"]))
@@ -234,15 +280,15 @@ def cmd_plan(a):
     todos = writes + extras
     lotes = [todos[i:i + 45] for i in range(0, len(todos), 45)] or [[]]
     for n, lote in enumerate(lotes, 1):
-        json.dump(lote, open(os.path.join(a.saida, f"writes-{n}.json"), "w"), ensure_ascii=False)
-    prev = [f"# Prévia do import ({len(novos)} novas, {len(atualizados)} atualizadas, {len(extras)} docs de dias/arquivo/config, {len(conflitos)} conflitos)", ""]
-    prev += ["## Novas"] + [f"- {t} `{i}`" for i, t in novos] + ["", "## Atualizadas (mesma chave; só título/status/prazo/prioridade/projeto/próximo passo, arrays unidos)"]
+        json.dump(lote, open(os.path.join(a.saida, f"writes-{n}.json"), "w", encoding="utf-8"), ensure_ascii=False)
+    prev = [T["prev_titulo"].format(novas=len(novos), atualizadas=len(atualizados), extras=len(extras), conflitos=len(conflitos)), ""]
+    prev += [T["prev_novas"]] + [f"- {t} `{i}`" for i, t in novos] + ["", T["prev_atualizadas"]]
     prev += [f"- {t} `{i}`" for i, t in atualizados]
     if conflitos:
-        prev += ["", "## Conflitos (não entram)"] + [f"- {c}" for c in conflitos]
+        prev += ["", T["prev_conflitos"]] + [f"- {c}" for c in conflitos]
     if extras:
-        prev += ["", "⚠️ Os docs de dias/arquivo/config SUBSTITUEM os existentes: use só em quadro novo."]
-    prev += ["", f"Índice: `update` em indice/ativos com {pi} (merge por id)."]
+        prev += ["", T["prev_extras"]]
+    prev += ["", T["prev_indice"].format(p=pi)]
     open(os.path.join(a.saida, "preview.md"), "w", encoding="utf-8").write("\n".join(prev) + "\n")
     print(json.dumps({"novas": len(novos), "atualizadas": len(atualizados), "extras": len(extras), "conflitos": len(conflitos),
                       "lotes": len(lotes), "preview": os.path.join(a.saida, "preview.md"), "indice": pi}, ensure_ascii=False))
@@ -253,9 +299,13 @@ def main():
     sp = ap.add_subparsers(dest="cmd", required=True)
     e = sp.add_parser("export"); e.add_argument("--dir", required=True); e.add_argument("--escopo", required=True)
     e.add_argument("--out", required=True); e.add_argument("--csv"); e.add_argument("--md")
+    e.add_argument("--idioma", default="pt-BR", help="config/preferencias.idioma (pt* = português, outro = inglês)")
     p = sp.add_parser("plan"); p.add_argument("--entrada", required=True); p.add_argument("--indice")
     p.add_argument("--saida", required=True); p.add_argument("--com-config", action="store_true")
+    p.add_argument("--idioma", default="pt-BR", help="config/preferencias.idioma (pt* = português, outro = inglês)")
     a = ap.parse_args()
+    global IDIOMA
+    IDIOMA = a.idioma
     {"export": cmd_export, "plan": cmd_plan}[a.cmd](a)
 
 
