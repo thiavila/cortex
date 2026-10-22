@@ -73,7 +73,7 @@ def so():
     return "linux"
 
 
-# Onde o app desktop guarda as coisas dele, por SO. O nome da pasta do app pode ter sufixo (Claude-Daki, Claude-3p…).
+# Onde o app desktop guarda as coisas dele, por SO. O nome da pasta do app pode ter sufixo (ex.: um sufixo por conta ou perfil).
 _EXEC_APP = {
     "darwin": r"(.*[\\/]Application Support[\\/][^\\/]+)[\\/]",
     "windows": r"(.*[\\/]AppData[\\/](?:Roaming|Local)[\\/][^\\/]+)[\\/]",
