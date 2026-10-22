@@ -52,9 +52,10 @@ funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (cam
   projeto?" em pastas onde a v3 nunca perguntava. `itens` fica como está (ou `{}`).
 - `config/fontes`:
   - `{versao: 1, texto}` → `{versao: 2, texto}` com o mesmo `texto`, mais `agenda.calendarios` (das `agendas` acima) e
-    `conversas.backend` (`app` no app desktop, senão `transcritos`). Com um conector de reuniões ligado na sessão,
-    `reunioes.conector` = ele (a v3 lia o Granola por padrão quando estava ligado), a não ser que o `texto` descreva
-    outra fonte de reuniões: aí vale o `texto` e `reunioes` fica ausente (perguntar na próxima `/quadro-tarefas fontes`). Os demais campos ficam ausentes:
+    `conversas.backend` (`app` no app desktop, senão `transcritos`). Com o conector do Granola ligado na sessão
+    (o único que a v3 lia por padrão), `reunioes.conector` = ele, a não ser que o `texto` diga outra coisa sobre
+    reuniões (outra fonte, ou não ler reuniões): aí vale o `texto` e `reunioes` fica ausente. Outro conector de
+    reuniões não é gravado na migração (a v3 não o lia): só oferecer na próxima `/quadro-tarefas fontes`, com o ok. Os demais campos ficam ausentes:
     o `texto` continua valendo para o que ele descreve.
   - Sem `config/fontes` e com o arquivo local legado `fontes-<escopo>.md` → `texto` = o conteúdo dele (é da própria
     pessoa; dizer em uma linha que foi para o quadro). Procurar em `<dados>/tarefas/` e, se não houver, na pasta de
@@ -62,11 +63,9 @@ funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (cam
     arquivo fica onde está.
 - Chaves `gcal:<eventId>` não são reescritas: valem como `agenda:<eventId>`.
 - **Página:** a página publicada na v3 é a antiga (só português, sem fuso, sem conversas do CLI). Remontar e publicar
-  na mesma URL (`quadro-tarefas` § Atualizar a página) e gravar `config/schema.pagina`. Se `config/preferencias.tema`
-  existe com um valor diferente de `padrao` (tema embutido por nome, de antes do `config/tema`) e não há `config/tema`,
-  não remontar ainda: dizer em uma linha que o tema antigo não vem no plugin e oferecer o `quadro-tarefas` § Tema (o
-  site da marca, um guia, ou o CSS antigo, se a pessoa o tiver). Sem resposta, migrar o banco e manter a página
-  publicada. `preferencias.tema` sai quando o `config/tema` for gravado. Sem a tool `Artifact` nesta
+  na mesma URL (`quadro-tarefas` § Atualizar a página) e gravar `config/schema.pagina`. Tema embutido antigo
+  (`config/preferencias.tema` diferente de `padrao`, sem `config/tema`): a remontagem segue a trava de
+  `quadro-tarefas` § Atualizar a página, que vale para toda remontagem, não só a da migração. Sem a tool `Artifact` nesta
   sessão, migrar o banco mesmo assim e dizer em uma linha que a página se atualiza no próximo `/quadro-tarefas`.
 
 ## Restos de versões antigas

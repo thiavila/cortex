@@ -184,6 +184,11 @@ Quando a página publicada é de uma versão mais antiga do plugin (ou numa migr
 o `config/tema`; sem ele, neutro) e o título atual do artefato → `Artifact read` da URL → publish do HTML novo **na
 mesma URL**, sem mudar `capabilities` → `update config/schema` com `pagina` = a versão do plugin. O banco e as tarefas
 ficam como estão.
+**Trava do tema antigo:** se `config/preferencias.tema` existe com valor diferente de `padrao` (tema embutido por nome,
+de antes do `config/tema`) e não há `config/tema`, não remontar: a página publicada é a única que ainda tem a marca.
+Dizer em uma linha que o tema antigo não vem no plugin e oferecer o § Tema (o site da marca, um guia, ou o CSS antigo,
+se a pessoa o tiver). Só remontar depois que o `config/tema` for gravado (e então tirar `preferencias.tema`) ou que a
+pessoa disser para seguir com o tema neutro (então tirar `preferencias.tema`). Sem resposta, manter a página.
 
 ## Gestor — configurar `config/gestor`
 Contrato em `SCHEMA.md` § `config/gestor`; receitas em `<skills>/tarefas/referencias/gestores/<tipo>.md`.
