@@ -4,6 +4,21 @@ Contrato único entre a página do quadro (modelo `app/board-src.html`, montada 
 `tarefas-io`, `/bom-dia`, `/boa-noite` e `fechar`. Mudou o modelo? Suba `config/schema.versao`, descreva a
 migração em `MIGRACOES.md` e atualize a página e as skills juntas.
 
+## Backends v0.4
+
+O modelo de documentos permanece v4. O backend é escolhido explicitamente no primeiro setup: só Claude →
+`artifact`; qualquer outro agente → `local`. Seleção fica em `<root>/profiles/<perfil>.json` com
+`{version:1, profile, agents:[...], backend:"artifact"|"local", board?:"UUID", name?:"..."}`. Não é identidade
+de conta e não altera os documentos de um artifact existente. A raiz local e o transporte estão em `LOCAL.md`.
+
+No backend local, os mesmos documentos ficam no SQLite, o índice é derivado transacionalmente e toda alteração
+usa `if_version`. Não executar as instruções de escrita manual de índice abaixo nesse backend. Dados locais
+não têm os limites de serviço do artifact; valem os limites anunciados pelo runtime local. Conversas novas
+usam IDs com plataforma (`codex:<id>`, `claude:<id>`, `<agente>:<id>`), e a chave `conversa:<id>` inclui esse
+prefixo. Links são opcionais e específicos da plataforma; preservar IDs importados.
+
+## Adapter artifact
+
 O banco é o do artefato (capability `db`). O Claude lê e escreve com a tool `ArtifactData`
 (`url` = o quadro desta conta, ver `ACHAR-QUADRO.md`). Toda escrita em documento existente leva
 `if_version` (a versão lida por último). Escrever mais de 2 documentos → `batch`.

@@ -74,3 +74,12 @@ funcionando igual**, a migração grava o comportamento que a v3 tinha fixo (cam
 - **`<dados>/tarefas/fontes-<escopo>.md`** (ou em `<legado>/tarefas/`): fontes em arquivo local. Lido só por quadro sem `config/fontes` (e migrado
   na v3 → v4).
 - **`config/preferencias.export`:** ver v1 → v2.
+
+## v0.4 — escolha de runtime sem migração automática
+
+O modelo de documentos continua v4. Seleção de runtime é separada do schema: artifact legado continua na
+conta original; setup com qualquer agente além de Claude cria/seleciona um quadro local por perfil explícito.
+Trocar seleção não copia nem remove dados. Para migrar, exportar o pacote com `tarefas-io` no artifact,
+criar quadro local vazio, conferir a prévia de `local_io.py import` e aplicar apenas após confirmação.
+O import local usa versões atuais para config e deriva o índice; nunca enviar `file_path` remoto ou lotes
+legados diretamente. Os IDs de conversas existentes são preservados. Veja `LOCAL.md`.

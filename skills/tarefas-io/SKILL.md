@@ -12,6 +12,16 @@ argument-hint: "export [json|csv|md|gestor|<destino>] | import <arquivo|gestor|<
 
 # tarefas-io — tirar e colocar tarefas
 
+## Runtime primeiro
+
+Antes dos passos abaixo, ler `<skills>/tarefas/LOCAL.md` e resolver a seleção explícita do perfil.
+**Backend local:** seguir o transporte, a identidade de quadro/conversa e as exceções dessa referência;
+as menções abaixo a `ArtifactData`, conta do Claude, índice manual e ferramentas de sessão são do adapter
+Claude e devem ser traduzidas. As regras de tarefas e as autorizações do usuário continuam valendo.
+**Backend artifact, ou usuário Claude legado sem seleção:** manter o fluxo abaixo. Sem seleção em outro
+agente, oferecer o setup de `quadro-tarefas`; não criar nem escolher um quadro automaticamente.
+
+
 `<skills>` = a pasta-mãe do Base directory desta skill (vale numa pasta de skills e dentro do plugin).
 
 Script: `sh <skills>/tarefas/py <skills>/tarefas/io.py` (export e plano de import). Contrato: `<skills>/tarefas/SCHEMA.md`.

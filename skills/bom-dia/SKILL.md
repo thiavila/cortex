@@ -17,6 +17,16 @@ argument-hint: "(nenhum) — o escopo vem do quadro da conta; na pasta de um pro
 
 # bom-dia — abrir o dia
 
+## Runtime primeiro
+
+Antes dos passos abaixo, ler `<skills>/tarefas/LOCAL.md` e resolver a seleção explícita do perfil.
+**Backend local:** seguir o transporte, a identidade de quadro/conversa e as exceções dessa referência;
+as menções abaixo a `ArtifactData`, conta do Claude, índice manual e ferramentas de sessão são do adapter
+Claude e devem ser traduzidas. As regras de tarefas e as autorizações do usuário continuam valendo.
+**Backend artifact, ou usuário Claude legado sem seleção:** manter o fluxo abaixo. Sem seleção em outro
+agente, oferecer o setup de `quadro-tarefas`; não criar nem escolher um quadro automaticamente.
+
+
 `<skills>` = a pasta-mãe do Base directory desta skill (funciona numa pasta de skills e dentro do plugin). Ex.:
 `<skills>/tarefas/SCHEMA.md`. Scripts: `sh <skills>/tarefas/py <script>`. Sem uma ferramenta do app desktop (CLI,
 Windows, Linux): `<skills>/tarefas/ACHAR-QUADRO.md` § 0 diz o caminho alternativo de cada uma.

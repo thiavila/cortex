@@ -1,7 +1,7 @@
 ---
 name: quadro-tarefas
 description: >
-  Abre o quadro de tarefas do usuário (quadro em artefato com banco) no navegador; se ele ainda não existe
+  Configura e abre o quadro de tarefas do usuário (artifact Claude ou quadro local) no navegador; se ele ainda não existe
   nesta conta, cria: descobre as ferramentas ligadas (agenda, reuniões, chat, código, gestor de tarefas), o
   idioma, o fuso e o sistema, confirma em uma ou duas perguntas, publica a página, grava preferências, fontes,
   gestor, schema e índice, importa um pacote da tarefas-io se houver, e lembra o link no atalho local. Use quando
@@ -27,6 +27,30 @@ Pacotes de import/export (gerados pela `tarefas-io`): `<dados>/tarefas-exports/q
 
 **Idioma:** perguntar e responder no idioma da pessoa (o jeito que ela escreve); depois de criado, o de
 `config/preferencias.idioma`. As perguntas abaixo estão em português: traduzir.
+
+## 0. Escolher onde o quadro funciona
+
+Ler `<skills>/tarefas/LOCAL.md` **antes** de qualquer teste de `Artifact`/`ArtifactData`. No primeiro setup,
+perguntar quais agentes a pessoa usa, incluindo outros além do agente desta sessão:
+
+> “Você usa somente Claude ou também/outro agente, como Codex ou Gemini?”
+
+Somente Claude → artifact. Qualquer outro agente, sozinho ou combinado → local. Não oferecer Pages nem
+escolher pelo host atual. Perguntar/confirmar perfil, nome, locale e fuso junto das demais preferências. Gravar
+com `setup.py ... configure` conforme `LOCAL.md`; a pergunta ocorre no primeiro uso, não em um instalador invisível.
+
+Seleção existente → respeitá-la e abrir o mesmo quadro; `configure` repetido não recria dados. A pessoa pediu
+troca → explicar que a seleção muda, mas os dados só vão por export/import; confirmar antes de
+`--replace-selection`. Perfil inválido ou inacessível → parar a escolha, sem fallback. Claude legado já usando
+artifact e sem seleção nova continua no § 1 sem ser obrigado a migrar.
+
+**Modo local:** usar o UUID retornado pelo setup. Descobrir e confirmar fontes, gestor e preferências como
+no § 2, mas gravar pelo dispatcher local com versões recém-lidas; não publicar artifact, não escrever índice
+manualmente, não usar `quadros.py`. Abrir com `local.py --board <UUID> serve --port 0` no navegador. Para
+`gestor`, `fontes`, `tema` e `varrer`, aplicar as mesmas decisões via transporte local, respeitando as permissões
+do host. Export/import segue `LOCAL.md`; o quadro existente permanece intacto. Fim do caminho local.
+
+Os próximos passos são o adapter de **artifact Claude**.
 
 ## 1. Já existe? Então só abre
 1. Seguir `ACHAR-QUADRO.md` § Busca completa (lista de artefatos da conta).

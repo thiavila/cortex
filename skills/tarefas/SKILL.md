@@ -1,7 +1,7 @@
 ---
 name: tarefas
 description: >
-  Quadro de tarefas do usuário (artefato com banco): o destino de QUALQUER pedido para salvar, anotar,
+  Quadro de tarefas do usuário (artifact Claude ou quadro local): o destino de QUALQUER pedido para salvar, anotar,
   acompanhar ou lembrar uma tarefa ou pendência, em qualquer projeto ("salva como task", "salva isso como
   uma task pra eu fazer depois", "anota pra depois", "cria uma tarefa", "preciso lembrar de X", "tenho que
   fazer Y", "anota no quadro", "registra essa tarefa", "cria um card"; English: "save this as a task",
@@ -17,6 +17,16 @@ argument-hint: "(nenhum) | registrar <texto> | buscar <texto> | ligar <id> | sta
 ---
 
 # tarefas — o quadro como memória do dia
+
+## Runtime primeiro
+
+Antes dos passos abaixo, ler `<skills>/tarefas/LOCAL.md` e resolver a seleção explícita do perfil.
+**Backend local:** seguir o transporte, a identidade de quadro/conversa e as exceções dessa referência;
+as menções abaixo a `ArtifactData`, conta do Claude, índice manual e ferramentas de sessão são do adapter
+Claude e devem ser traduzidas. As regras de tarefas e as autorizações do usuário continuam valendo.
+**Backend artifact, ou usuário Claude legado sem seleção:** manter o fluxo abaixo. Sem seleção em outro
+agente, oferecer o setup de `quadro-tarefas`; não criar nem escolher um quadro automaticamente.
+
 
 `<skills>` = a pasta-mãe do Base directory desta skill (vale numa pasta de skills e dentro do plugin).
 Scripts: `sh <skills>/tarefas/py <script>` (acha o Python certo em macOS, Windows e Linux).
