@@ -687,7 +687,7 @@ function renderHint() {
 }
 function renderControls() {
   renderStatic();
-  $("#scopeName").textContent = ESCOPO.nome || t("tarefas");
+  $("#scopeName").textContent = window.CORTEX_LOCAL?.title || ESCOPO.nome || t("tarefas");
   $("#scopeSub").textContent = ESCOPO.sub || "";
   renderHint();
   const projetos = [...new Set(tasks.flatMap(projetosOf))].sort(cmpNome);

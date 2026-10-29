@@ -180,6 +180,7 @@ Só existe se o quadro foi vestido com a marca da pessoa (`quadro-tarefas` § Te
   "fontes_externas": true,
   "atualizado_em": "ISO" }
 ```
+- `titulo` (local, opcional): título visual do artifact original; não muda o nome/escopo nos dados.
 - `css`: só sobrescrita de tokens e ajustes leves de forma; vai inteiro no `--tema-arquivo` do `build.py` ao remontar.
 - `fontes`: URL do Google Fonts ou `null`. Nunca guardar arquivo de fonte, logo ou imagem aqui.
 - `fontes_externas: false`: a página não carrega nada de fora (nem o Google Fonts) e usa as fontes do sistema

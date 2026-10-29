@@ -120,7 +120,7 @@ recebem o conteúdo necessário às operações solicitadas, conforme seus próp
 arquivos da conta do sistema pode acessar o banco: perfis não isolam usuários do sistema. Mantenha backup privado.
 
 O servidor escuta apenas `127.0.0.1`, verifica Host/Origin e exige autorização para dados. Não habilita CORS público.
-O MCP não oferece shell nem acesso arbitrário a arquivos. O modo local usa fontes do sistema, sem buscar fontes externas. Não publique banco, exports ou URL temporária do quadro.
+O MCP não oferece shell nem acesso arbitrário a arquivos. O modo local começa com fontes do sistema. Um tema importado com `fontes_externas: true` preserva suas fontes do Google Fonts; somente os domínios de CSS/fontes do Google são liberados. Os dados continuam no computador. Não publique banco, exports ou URL temporária do quadro.
 
 ## Desenvolvimento
 

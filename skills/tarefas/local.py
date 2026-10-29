@@ -18,26 +18,39 @@ def make_server(store, board, port=0):
     info = store.dispatch(board, {'op': 'info'})
     prefs = store.dispatch(board, {'op': 'get', 'collection': 'config', 'id': 'preferencias'})['data'] or {}
     theme = store.dispatch(board, {'op': 'get', 'collection': 'config', 'id': 'tema'})['data'] or {}
-    title = prefs.get('nome') or info['name']
+    title = theme.get('titulo') or prefs.get('nome') or info['name']
+    external_fonts = theme.get('fontes_externas') is True
+    fonts = theme.get('fontes')
+    if fonts is not None and not isinstance(fonts, str):
+        fail('invalid_argument', 'Invalid theme fonts')
     css = theme.get('css', '')
     if not isinstance(css, str) or not isinstance(title, str):
         fail('invalid_argument', 'Invalid board title or theme CSS')
     with tempfile.TemporaryDirectory(prefix='cortex-board-') as folder:
         page = Path(folder) / 'board.html'
         command = [sys.executable, str(HERE / 'app' / 'build.py'), '--titulo', title,
-                   '--sem-fontes-externas', '--out', str(page)]
+                   '--out', str(page)]
+        if not external_fonts:
+            command += ['--sem-fontes-externas']
+        elif fonts:
+            command += ['--fontes', fonts]
         if css:
             theme_file = Path(folder) / 'theme.css'
             theme_file.write_text(css, encoding='utf-8')
             command += ['--tema-arquivo', str(theme_file)]
         # All persisted theme CSS passes through the existing build.py sanitizer.
-        # External fonts remain disabled for the local board and its strict CSP.
+        # Google Fonts is allowed only when explicitly enabled by this board's theme.
         result = subprocess.run(command, capture_output=True, timeout=30)
         if result.returncode:
             fail('unavailable', 'Could not build board page')
         html = page.read_text(encoding='utf-8')
-    bootstrap = '<script>window.CORTEX_LOCAL=' + encode({'board': board, 'api': '/api'}) + ';</script>\n<script src="/local-adapter.js"></script>\n'
+    bootstrap = '<script>window.CORTEX_LOCAL=' + encode({'board': board, 'api': '/api', 'title': theme.get('titulo')}).replace('<', chr(92) + 'u003c') + ';</script>\n<script src="/local-adapter.js"></script>\n'
     html = html.replace('<script>', bootstrap + '<script>', 1).encode('utf-8')
+    # Artifact hosts inject a document reset; standalone HTML must provide it.
+    head, body = html.split(b'<div class="wrap">', 1)
+    html = b'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0}img{max-width:100%}</style>' + head + b'</head><body><div class="wrap">' + body + b'</body></html>'
+    font_style = ' https://fonts.googleapis.com' if external_fonts else ''
+    font_source = ' https://fonts.gstatic.com' if external_fonts else ''
     token = secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
@@ -61,7 +74,7 @@ def make_server(store, board, port=0):
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('X-Frame-Options', 'DENY')
-            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" + font_style + "; connect-src 'self'; img-src 'self' data:; font-src 'self'" + font_source + "; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
             self.end_headers()
             try:
                 self.wfile.write(body)

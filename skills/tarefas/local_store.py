@@ -19,6 +19,8 @@ MAX_RECEIPTS = 10000
 COLLECTIONS = {'tasks', 'dias', 'arquivo', 'recorrentes', 'config', 'indice'}
 READS = {'get', 'list', 'query', 'info'}
 WRITES = {'set', 'update', 'delete', 'batch', 'rebuild-index'}
+# Evidence/context may be shared by several cards. Tracker IDs remain exclusive.
+SHARED_KEY_PREFIXES = {'conversa', 'pr', 'branch', 'gsd', 'repo'}
 
 
 class LocalError(Exception):
@@ -299,7 +301,8 @@ class Store:
         if collection == 'tasks':
             db.execute('DELETE FROM task_keys WHERE board=? AND id=?', (board, docid))
             for key in (data or {}).get('chaves', []):
-                db.execute('INSERT INTO task_keys VALUES (?,?,?)', (board, key, docid))
+                if key.split(':', 1)[0] not in SHARED_KEY_PREFIXES:
+                    db.execute('INSERT INTO task_keys VALUES (?,?,?)', (board, key, docid))
         self._put(db, board, collection, docid, data, (current['version'] or 0) + 1)
         return self._get(db, board, collection, docid)
 

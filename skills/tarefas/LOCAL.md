@@ -93,9 +93,11 @@ sem operador suportado, listar paginado e filtrar no agente, sem ignorar a condi
 skills antigas; o servidor o mantém ao gravar tarefas. No `/boa-noite`, usar `rebuild-index` quando necessário.
 Não incluir gravação do índice em lotes locais. Mesma regra para a página e imports.
 
+Chaves de contexto (`conversa:`, `pr:`, `repo:`, `branch:` e `gsd:`) podem ligar vários cards, como nos artifacts. IDs de gestores e outras identidades continuam exclusivos; não mesclar cards apenas por compartilharem contexto.
+
 O setup inicializa o banco; o assistente completa preferências/fontes/gestor com as respostas da pessoa usando
 `get` + `update` versionado, mantendo o schema suportado pelo runtime. A página é servida dos arquivos do plugin;
-atualizar o plugin não recria o banco. Tema usa `config/tema`; não publicar outro artifact para mudar o visual local.
+atualizar o plugin não recria o banco. Tema usa `config/tema`; não publicar outro artifact para mudar o visual local. Preservar `css`, `fontes` e `fontes_externas` do original. `titulo` opcional mantém o cabeçalho publicado sem renomear `config/preferencias.nome`. Reiniciar o servidor após mudar o tema. Fontes externas são liberadas apenas para Google Fonts quando a preferência é explicitamente `true`.
 
 ### MCP opcional
 

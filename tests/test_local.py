@@ -138,6 +138,29 @@ class LocalTests(unittest.TestCase):
         self.assertEqual(200, request('/api', update, auth)[0])
         self.assertEqual('Browser', json.loads(self.cli(query).stdout)['data']['titulo'])
 
+    def test_theme_fonts_are_explicit_scoped_and_visual_title_is_safe(self):
+        self.call(op='update', collection='config', id='tema', if_version=1, data={
+            'titulo':'Tasks </script><script>alert(1)</script>', 'fontes_externas':True,
+            'fontes':'https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap'})
+        server = make_server(self.store, self.board)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close); self.addCleanup(server.shutdown)
+        conn = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
+        conn.request('GET','/'); response=conn.getresponse(); html=response.read().decode(); conn.close()
+        self.assertEqual(response.status,200)
+        csp=response.getheader('Content-Security-Policy')
+        self.assertIn('https://fonts.googleapis.com', csp)
+        self.assertIn('https://fonts.gstatic.com', csp)
+        self.assertIn("connect-src 'self';",csp)
+        self.assertIn('family=Inter',html)
+        self.assertIn('<!doctype html>',html)
+        self.assertIn('html,body{margin:0;padding:0}',html)
+        self.assertNotIn('Tasks </script><script>',html)
+        self.assertIn(chr(92)+'u003c/script>',html)
+        self.assertEqual('Example', self.call(op='get',collection='config',id='preferencias')['data']['nome'])
+        self.call(op='update',collection='config',id='tema',if_version=2,data={'fontes':'https://unrelated.invalid/font.css'})
+        with self.assertRaises(LocalError): make_server(self.store,self.board)
+
     def test_cli_serve_restart_preserves_data_and_rotates_token(self):
         self.assertEqual(0, self.cli({'op': 'set', 'collection': 'tasks', 'id': 'persist', 'data': {'titulo': 'Persistent'}}).returncode)
         previous_token = None
