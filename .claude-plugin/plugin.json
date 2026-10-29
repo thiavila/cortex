@@ -2,7 +2,7 @@
   "name": "cortex",
   "displayName": "Cortex",
   "description": "Cortex: tarefas e rotinas em artifact para quem usa só Claude, ou em quadro local compartilhado para qualquer outro agente.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": {
     "name": "Thiago Avila",
     "url": "https://github.com/thiavila"

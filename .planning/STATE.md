@@ -17,3 +17,5 @@ Setup: Claude exclusivo → artifact; qualquer outro → local compartilhado. Im
 | ID | Entrega | Estado |
 |---|---|---|
 | 261028-wgo | Migração de dois artifacts e preservação de identidades, fontes e vínculos compartilhados | Implementado e validado; revisão cruzada pendente |
+
+| 261029-o7x | Roteamento opt-in por identidade Claude com política no banco; sessão real sem perfil resolveu destino esperado | 35 testes Python; revisão Claude GO restrita ao ajuste; outros P2 da revisão geral pendentes |

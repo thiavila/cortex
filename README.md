@@ -87,6 +87,13 @@ MCP de cada agente, preservando entradas existentes. Os dois devem usar o mesmo 
 precisa estar aberto para usar CLI/MCP. Sem MCP, use `local.py --board <UUID> call` com JSON por stdin.
 O contrato e a tradução de operações das skills estão em [`LOCAL.md`](skills/tarefas/LOCAL.md).
 
+## Roteamento opcional por conta do agente
+
+A seleção automática pode ser habilitada por pessoa/empresa em `config/roteamento` no banco de cada quadro.
+`setup.py resolve --host claude` consulta a conta autenticada no host e escolhe apenas uma correspondência.
+Sem regras ativas, mantém o fluxo habitual. Havendo regras sem correspondência ou ambíguas, pede escolha explícita. Contas e empresas concretas nunca entram nas skills.
+As regras Claude não são usadas pelo Codex ou por outro host. Contrato e exemplo em `LOCAL.md`.
+
 ## Dados, perfis e migração
 
 A raiz local é `CORTEX_LOCAL_DIR` quando definido, ou:

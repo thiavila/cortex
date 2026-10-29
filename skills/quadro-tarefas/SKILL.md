@@ -39,6 +39,8 @@ Somente Claude → artifact. Qualquer outro agente, sozinho ou combinado → loc
 escolher pelo host atual. Perguntar/confirmar perfil, nome, locale e fuso junto das demais preferências. Gravar
 com `setup.py ... configure` conforme `LOCAL.md`; a pergunta ocorre no primeiro uso, não em um instalador invisível.
 
+Antes de descobrir artifacts, resolver qualquer regra opt-in de identidade do host conforme LOCAL.md; erro/ambiguidade exige seleção explícita, nunca fallback.
+
 Seleção existente → respeitá-la e abrir o mesmo quadro; `configure` repetido não recria dados. A pessoa pediu
 troca → explicar que a seleção muda, mas os dados só vão por export/import; confirmar antes de
 `--replace-selection`. Perfil inválido ou inacessível → parar a escolha, sem fallback. Claude legado já usando

@@ -355,3 +355,7 @@ para subcoleções (`tasks/<id>/historico/<ts>`).
 3. `atualizado_em` muda a cada escrita; `concluido_em` só ao ir para `feito`.
 4. Ligação em `relacionadas` é sempre gravada nos dois lados (batch com as duas tarefas + índice).
 5. Nada de segredo, token ou dado de cartão em nenhum campo.
+
+### `config/roteamento` — identidade do host (opt-in)
+
+`{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional"}]}`. Regras específicas da pessoa/empresa, cadastradas somente por pedido explícito. A identidade vem da autenticação real do host; `organizacao`, quando presente, também precisa coincidir. Uma única correspondência seleciona o quadro; zero/múltiplas exigem escolha explícita, sem fallback. Não é controle de acesso ao SQLite. Não aplica a outros hosts por analogia.

@@ -118,6 +118,8 @@ def main(argv=None):
     parser.add_argument("--root")
     parser.add_argument("--profile", default=os.environ.get("CORTEX_PROFILE"))
     commands = parser.add_subparsers(dest="command", required=True)
+    resolve = commands.add_parser("resolve", help="Read board routing using the authenticated host account")
+    resolve.add_argument("--host", required=True)
     commands.add_parser("status", help="Read selection without creating files")
     commands.add_parser("mcp-config", help="Print MCP config with real paths and board; never installs it")
     setup = commands.add_parser("configure")
@@ -129,6 +131,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     root = root_path(args.root)
     try:
+        if args.command == "resolve":
+            from routing import resolve_host, RoutingError
+            try:
+                value = resolve_host(root, args.host)
+            except RoutingError as exc:
+                raise SetupError(str(exc))
+            print(json.dumps(value, ensure_ascii=False))
+            return 0
         path = profile_path(root, args.profile)
         if args.command == "configure":
             agents = args.agents

@@ -21,6 +21,18 @@ o quadro. Nunca inferir perfil por cwd, nome da empresa, `CLAUDE_CONFIG_DIR` ou 
 `CORTEX_LOCAL_DIR`, senão Application Support/Cortex no macOS, LOCALAPPDATA/Cortex no Windows ou
 XDG_DATA_HOME/cortex no Linux (com os padrões do sistema). Dados ficam fora do plugin/repositório.
 
+### Roteamento opcional por identidade do host
+
+A política fica em `config/roteamento` de cada quadro, não nas skills. Só aplicar regras ativas para o host atual. No Claude, antes da descoberta por artifact ou de pedir perfil, executar:
+
+```sh
+python3 <skills>/tarefas/setup.py resolve --host claude
+```
+
+O comando lê a conta realmente autenticada com `claude auth status` e compara com as regras persistidas. Não escolhe conta, não troca login nem deduz identidade por `CLAUDE_CONFIG_DIR`, pasta, nome da empresa ou conector externo. `--profile`/`CORTEX_PROFILE` explicitamente definidos pelo usuário têm precedência: usar `status` e não executar `resolve`. Caso contrário, com uma correspondência, usar exatamente o `board`/`root` retornado. `routing: unconfigured` significa nenhuma regra ativa para este host: manter o fluxo habitual de perfil ou artifact legado. `routing_not_found` significa que há regra ativa, mas nenhuma corresponde; nesse caso, assim como em erro/ambiguidade, perguntar e nunca cair no artifact. Se houver `--profile`/`CORTEX_PROFILE` explicitamente escolhido pelo usuário nesta sessão, respeitar essa escolha usando `status`.
+
+Esquema opt-in: `{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional"}]}`. Os valores concretos pertencem ao banco de cada pessoa. Outros hosts continuam com a seleção explícita habitual; nenhuma regra Claude se aplica a eles. Antes de cadastrar/alterar regras, confirmar com o usuário as contas e quadros envolvidos. Não criar política automática para outros usuários do plugin.
+
 Ler a seleção sem efeitos colaterais:
 
 ```sh
@@ -45,7 +57,7 @@ Repetir setup do mesmo modo preserva o ID e os dados, inclusive se mudar a lista
 consentimento explícito e `--replace-selection`; só altera a seleção, **não migra nem apaga o quadro anterior**.
 Use outro perfil para manter ambos. Depois de trocar para local, ofereça export/import do artifact com prévia.
 
-**Compatibilidade anterior:** sem seleção nova, usuários Claude com ferramentas de artifacts continuam no fluxo
+**Compatibilidade anterior:** só após verificar roteamento e confirmar ausência de seleção local aplicável, usuários Claude legados com ferramentas de artifacts continuam no fluxo
 `ACHAR-QUADRO.md`. Em um agente sem essas ferramentas, iniciar o setup; não interpretar “sem configuração” como
 permissão para criar um banco. Seleção inválida/inacessível é erro, não motivo para fallback.
 
