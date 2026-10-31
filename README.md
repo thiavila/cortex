@@ -142,3 +142,9 @@ Use dados temporários nos testes. Modelo em [`SCHEMA.md`](skills/tarefas/SCHEMA
 ## Licença
 
 MIT
+
+## Serviço opcional para vários quadros
+
+`service.py --config <arquivo.json> --status <arquivo-privado.json>` serve vários quadros num único processo. Configuração: `{root:"<raiz>",boards:{exemplo:{board:"<UUID>",port:0}}}`. Em repouso, usa espera bloqueante do sistema, sem polling. Status deve ficar numa pasta privada; contém URLs com credenciais temporárias. `--status <arquivo> --open <chave>` abre o quadro no macOS.
+
+Um LaunchAgent por usuário pode invocá-lo no login com RunAtLoad e throttle, sem abrir browser. É opcional e não é instalado automaticamente pelo plugin. Após restart, reabrir pela URL nova/atalho. O atendimento é sequencial e uma conexão sem dados pode reter o serviço por até5s.

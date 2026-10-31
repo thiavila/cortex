@@ -19,3 +19,5 @@ Setup: Claude exclusivo → artifact; qualquer outro → local compartilhado. Im
 | 261028-wgo | Migração de dois artifacts e preservação de identidades, fontes e vínculos compartilhados | Implementado e validado; revisão cruzada pendente |
 
 | 261029-o7x | Roteamento opt-in por identidade Claude com política no banco; sessão real sem perfil resolveu destino esperado | 35 testes Python; revisão Claude GO restrita ao ajuste; outros P2 da revisão geral pendentes |
+
+| 261031-mgr | Serviço macOS no login, um processo para dois quadros e atalhos de abertura; ~26MiB em repouso | Teste restart/HTTP passou; launchd ativo; Claude GO restrito ao serviço |
