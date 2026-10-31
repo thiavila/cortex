@@ -154,3 +154,5 @@ Um LaunchAgent por usuário pode invocá-lo no login com RunAtLoad e throttle, s
 Com portas fixas, `persistent_auth: true` no JSON do serviço mantém uma chave por quadro em `<root>/browser-auth/` (0700/0600). O browser guarda apenas a credencial validada em localStorage daquele quadro/origem. Autorize uma vez pela URL do atalho; depois fixe o endereço raiz sem fragmento. Reiniciar o serviço mantém a autorização. O modo CLI padrão continua efêmero.
 
 Se limpar os dados do browser ou mudar de perfil, reabra pelo atalho para autorizar novamente. Revogar exige parar o serviço, remover a chave privada do quadro e iniciar novamente. Não publique as chaves. Uma origem loopback persistente deve ser usada somente num computador confiável: outro processo que ocupe a mesma porta enquanto o serviço estiver parado pode capturar o armazenamento dessa origem.
+
+O favicon de cada quadro pode ser definido em `config/tema.favicon`: basename de PNG/ICO em `<root>/assets` (máximo1MiB). Os logos ficam na instalação da pessoa; o código não contém marcas fixas. Reinicie o serviço e recarregue a aba para aplicar; a URL do favicon inclui hash para atualizar o cache.

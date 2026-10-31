@@ -161,6 +161,26 @@ class LocalTests(unittest.TestCase):
         self.call(op='update',collection='config',id='tema',if_version=2,data={'fontes':'https://unrelated.invalid/font.css'})
         with self.assertRaises(LocalError): make_server(self.store,self.board)
 
+    def test_favicon_is_local_configurable_and_raster_only(self):
+        assets=self.store.root/'assets';assets.mkdir()
+        raw=b'\x89PNG\r\n\x1a\n'+b'fixture'
+        (assets/'brand.png').write_bytes(raw)
+        self.call(op='update',collection='config',id='tema',if_version=1,data={'favicon':'brand.png'})
+        server=make_server(self.store,self.board)
+        threading.Thread(target=server.serve_forever,daemon=True).start()
+        self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
+        conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+        conn.request('GET','/');r=conn.getresponse();html=r.read().decode()
+        import re
+        url=re.search(r'href="(/favicon.ico\?v=[a-f0-9]+)"',html).group(1)
+        conn.request('GET',url);r=conn.getresponse();self.assertEqual(r.status,200)
+        self.assertEqual(r.getheader('Content-Type'),'image/png');self.assertEqual(r.read(),raw);conn.close()
+        self.call(op='update',collection='config',id='tema',if_version=2,data={'favicon':'../private.png'})
+        with self.assertRaises(LocalError): make_server(self.store,self.board)
+        (assets/'bad.svg').write_text('<svg onload="alert(1)"/>')
+        self.call(op='update',collection='config',id='tema',if_version=3,data={'favicon':'bad.svg'})
+        with self.assertRaises(LocalError): make_server(self.store,self.board)
+
     def test_cli_serve_restart_preserves_data_and_rotates_token(self):
         self.assertEqual(0, self.cli({'op': 'set', 'collection': 'tasks', 'id': 'persist', 'data': {'titulo': 'Persistent'}}).returncode)
         previous_token = None

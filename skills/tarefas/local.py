@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Cortex local CLI and loopback board server. No dependencies or global daemon."""
 import argparse
+import hashlib
+import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 from pathlib import Path
@@ -21,6 +23,26 @@ def make_server(store, board, port=0, token=None):
     info = store.dispatch(board, {'op': 'info'})
     prefs = store.dispatch(board, {'op': 'get', 'collection': 'config', 'id': 'preferencias'})['data'] or {}
     theme = store.dispatch(board, {'op': 'get', 'collection': 'config', 'id': 'tema'})['data'] or {}
+    icon, icon_mime, icon_url = None, None, None
+    icon_name = theme.get('favicon')
+    if icon_name is not None:
+        if not isinstance(icon_name, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}', icon_name):
+            fail('invalid_argument', 'Invalid favicon filename')
+        asset_root = (store.root / 'assets').resolve()
+        icon_path = (asset_root / icon_name).resolve()
+        if icon_path.parent != asset_root:
+            fail('invalid_argument', 'Favicon must stay in the board assets directory')
+        with icon_path.open('rb') as source:
+            icon = source.read(1024 * 1024 + 1)
+        if len(icon) > 1024 * 1024:
+            fail('invalid_argument', 'Favicon exceeds 1 MiB')
+        if icon.startswith(b'\x89PNG\r\n\x1a\n'):
+            icon_mime = 'image/png'
+        elif icon.startswith(b'\x00\x00\x01\x00'):
+            icon_mime = 'image/x-icon'
+        else:
+            fail('invalid_argument', 'Favicon must be PNG or ICO')
+        icon_url = '/favicon.ico?v=' + hashlib.sha256(icon).hexdigest()[:16]
     title = theme.get('titulo') or prefs.get('nome') or info['name']
     external_fonts = theme.get('fontes_externas') is True
     fonts = theme.get('fontes')
@@ -49,6 +71,8 @@ def make_server(store, board, port=0, token=None):
         html = page.read_text(encoding='utf-8')
     bootstrap = '<script>window.CORTEX_LOCAL=' + encode({'board': board, 'api': '/api', 'title': theme.get('titulo'), 'rememberAuth':remember_auth}).replace('<', chr(92) + 'u003c') + ';</script>\n<script src="/local-adapter.js"></script>\n'
     html = html.replace('<script>', bootstrap + '<script>', 1).encode('utf-8')
+    if icon_url:
+        html = ('<link rel="icon" type="' + icon_mime + '" href="' + icon_url + '">\n').encode() + html
     # Artifact hosts inject a document reset; standalone HTML must provide it.
     head, body = html.split(b'<div class="wrap">', 1)
     html = b'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0}img{max-width:100%}</style>' + head + b'</head><body><div class="wrap">' + body + b'</body></html>'
@@ -108,6 +132,8 @@ def make_server(store, board, port=0, token=None):
                     self.reply(200, html, 'text/html; charset=utf-8')
                 elif self.path == '/local-adapter.js':
                     self.reply(200, (HERE / 'app' / 'local-adapter.js').read_bytes(), 'text/javascript; charset=utf-8')
+                elif icon is not None and self.path in {'/favicon.ico', icon_url}:
+                    self.reply(200, icon, icon_mime)
                 else:
                     fail('not_found', 'Route not found')
             except LocalError as err:

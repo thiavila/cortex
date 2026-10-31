@@ -180,6 +180,7 @@ Só existe se o quadro foi vestido com a marca da pessoa (`quadro-tarefas` § Te
   "fontes_externas": true,
   "atualizado_em": "ISO" }
 ```
+- `favicon` (local, opcional): nome de um arquivo PNG/ICO em `<root>/assets`, até 1 MiB. O banco guarda a referência; os bytes ficam fora do plugin. Reiniciar o serviço para aplicar.
 - `titulo` (local, opcional): título visual do artifact original; não muda o nome/escopo nos dados.
 - `css`: só sobrescrita de tokens e ajustes leves de forma; vai inteiro no `--tema-arquivo` do `build.py` ao remontar.
 - `fontes`: URL do Google Fonts ou `null`. Nunca guardar arquivo de fonte, logo ou imagem aqui.

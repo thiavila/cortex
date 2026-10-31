@@ -23,3 +23,5 @@ Setup: Claude exclusivo → artifact; qualquer outro → local compartilhado. Im
 | 261031-mgr | Serviço macOS no login, um processo para dois quadros e atalhos de abertura; ~26MiB em repouso | Teste restart/HTTP passou; launchd ativo; Claude GO restrito ao serviço |
 
 | 261031-mm4 | Abas fixas: portas estáveis e autorização persistente opt-in; Arc confirmado após restart | Testes e revisão Claude GO restrita; PR draft |
+
+| 261031-my1 | Favicons por quadro configurados no banco com logos locais originais | 12 testes locais; HTTP e Arc verificados; Claude GO restrito |
