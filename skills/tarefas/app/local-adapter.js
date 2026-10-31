@@ -5,26 +5,34 @@
   const cfg = window.CORTEX_LOCAL;
   const key = "cortex-token:" + cfg.board;
   let token = new URLSearchParams(location.hash.slice(1)).get("token");
+  let savedToken = null, storage = null;
   try {
-    if (token) sessionStorage.setItem(key, token);
-    else token = sessionStorage.getItem(key);
+    storage = cfg.rememberAuth ? localStorage : sessionStorage;
+    savedToken = storage.getItem(key);
+    if (!token) token = savedToken;
   } catch (_) { /* In-memory token still works when storage is unavailable. */ }
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
   const cache = new Map(), subscriptions = new Set();
   let epoch = 0;
   const copy = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const fault = (code, message) => Object.assign(new Error(message), { code });
-  async function call(request) {
+  async function call(request, retried = false) {
     if (!token) throw fault("unauthorized", "Open the URL printed by Cortex / Abra a URL do Cortex.");
     const response = await fetch(cfg.api, {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
       body: JSON.stringify(request), cache: "no-store", credentials: "omit",
     });
     const result = await response.json();
+    if (response.status === 401 && !retried && savedToken && savedToken !== token) {
+      token = savedToken;
+      return call(request, true); // Rejected before dispatch: safe even for mutations.
+    }
     if (!response.ok || result.error) {
       const error = result.error || {};
       throw fault(error.code || "unavailable", error.message || "Cortex unavailable");
     }
+    try { if (storage) storage.setItem(key, token); } catch (_) {}
+    savedToken = token; // Persist only after the server confirms the credential.
     return result;
   }
   const snapshot = item => ({ id: item.id, exists: item.exists !== false, version: item.version,

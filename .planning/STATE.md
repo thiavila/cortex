@@ -21,3 +21,5 @@ Setup: Claude exclusivo → artifact; qualquer outro → local compartilhado. Im
 | 261029-o7x | Roteamento opt-in por identidade Claude com política no banco; sessão real sem perfil resolveu destino esperado | 35 testes Python; revisão Claude GO restrita ao ajuste; outros P2 da revisão geral pendentes |
 
 | 261031-mgr | Serviço macOS no login, um processo para dois quadros e atalhos de abertura; ~26MiB em repouso | Teste restart/HTTP passou; launchd ativo; Claude GO restrito ao serviço |
+
+| 261031-mm4 | Abas fixas: portas estáveis e autorização persistente opt-in; Arc confirmado após restart | Testes e revisão Claude GO restrita; PR draft |

@@ -2,6 +2,8 @@
 """Optional local service: multiple boards, one process, no polling while idle."""
 import argparse
 import json
+import hashlib
+import secrets
 import os
 from pathlib import Path
 import selectors
@@ -13,6 +15,31 @@ from urllib.parse import urlsplit
 
 from local import make_server
 from local_store import Store
+
+
+def persistent_token(root, board):
+    directory = root / 'browser-auth'
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = directory / (hashlib.sha256(board.encode()).hexdigest() + '.key')
+    os.chmod(directory, 0o700)
+    name = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', dir=directory, delete=False) as out:
+            name = out.name
+            out.write(secrets.token_urlsafe(32))
+            out.flush()
+            os.fsync(out.fileno())
+        os.chmod(name, 0o600)
+        try:
+            os.link(name, path)  # Publish a complete key, without replacing another writer.
+        except FileExistsError:
+            pass
+        os.chmod(path, 0o600)
+        with path.open() as source:
+            return source.read(256).strip()
+    finally:
+        if name and os.path.exists(name):
+            os.unlink(name)
 
 
 def write_status(path, value):
@@ -47,7 +74,8 @@ def serve(config_path, status_path):
             port = entry.get('port', 0)
             if type(port) is not int or not 0 <= port <= 65535:
                 raise ValueError('Invalid port')
-            server = make_server(store, entry['board'], port)
+            token = persistent_token(store.root, entry['board']) if config.get('persistent_auth') is True else None
+            server = make_server(store, entry['board'], port, token=token)
             servers.append(server)
             selector.register(server, selectors.EVENT_READ)
             metadata['boards'][name] = {'board':entry['board'], 'url':server.url}

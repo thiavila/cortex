@@ -148,3 +148,9 @@ MIT
 `service.py --config <arquivo.json> --status <arquivo-privado.json>` serve vários quadros num único processo. Configuração: `{root:"<raiz>",boards:{exemplo:{board:"<UUID>",port:0}}}`. Em repouso, usa espera bloqueante do sistema, sem polling. Status deve ficar numa pasta privada; contém URLs com credenciais temporárias. `--status <arquivo> --open <chave>` abre o quadro no macOS.
 
 Um LaunchAgent por usuário pode invocá-lo no login com RunAtLoad e throttle, sem abrir browser. É opcional e não é instalado automaticamente pelo plugin. Após restart, reabrir pela URL nova/atalho. O atendimento é sequencial e uma conexão sem dados pode reter o serviço por até5s.
+
+### Abas fixas (opt-in do serviço)
+
+Com portas fixas, `persistent_auth: true` no JSON do serviço mantém uma chave por quadro em `<root>/browser-auth/` (0700/0600). O browser guarda apenas a credencial validada em localStorage daquele quadro/origem. Autorize uma vez pela URL do atalho; depois fixe o endereço raiz sem fragmento. Reiniciar o serviço mantém a autorização. O modo CLI padrão continua efêmero.
+
+Se limpar os dados do browser ou mudar de perfil, reabra pelo atalho para autorizar novamente. Revogar exige parar o serviço, remover a chave privada do quadro e iniciar novamente. Não publique as chaves. Uma origem loopback persistente deve ser usada somente num computador confiável: outro processo que ocupe a mesma porta enquanto o serviço estiver parado pode capturar o armazenamento dessa origem.

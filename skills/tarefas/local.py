@@ -14,7 +14,10 @@ from local_store import Store, LocalError, MAX_BODY, encode, fail, parse_json
 HERE = Path(__file__).resolve().parent
 
 
-def make_server(store, board, port=0):
+def make_server(store, board, port=0, token=None):
+    remember_auth = token is not None
+    if remember_auth and (not isinstance(token, str) or len(token) != 43 or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_' for c in token)):
+        fail('invalid_argument', 'Invalid persistent authorization')
     info = store.dispatch(board, {'op': 'info'})
     prefs = store.dispatch(board, {'op': 'get', 'collection': 'config', 'id': 'preferencias'})['data'] or {}
     theme = store.dispatch(board, {'op': 'get', 'collection': 'config', 'id': 'tema'})['data'] or {}
@@ -44,14 +47,14 @@ def make_server(store, board, port=0):
         if result.returncode:
             fail('unavailable', 'Could not build board page')
         html = page.read_text(encoding='utf-8')
-    bootstrap = '<script>window.CORTEX_LOCAL=' + encode({'board': board, 'api': '/api', 'title': theme.get('titulo')}).replace('<', chr(92) + 'u003c') + ';</script>\n<script src="/local-adapter.js"></script>\n'
+    bootstrap = '<script>window.CORTEX_LOCAL=' + encode({'board': board, 'api': '/api', 'title': theme.get('titulo'), 'rememberAuth':remember_auth}).replace('<', chr(92) + 'u003c') + ';</script>\n<script src="/local-adapter.js"></script>\n'
     html = html.replace('<script>', bootstrap + '<script>', 1).encode('utf-8')
     # Artifact hosts inject a document reset; standalone HTML must provide it.
     head, body = html.split(b'<div class="wrap">', 1)
     html = b'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0}img{max-width:100%}</style>' + head + b'</head><body><div class="wrap">' + body + b'</body></html>'
     font_style = ' https://fonts.googleapis.com' if external_fonts else ''
     font_source = ' https://fonts.gstatic.com' if external_fonts else ''
-    token = secrets.token_urlsafe(32)
+    token = token if remember_auth else secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = 'CortexLocal'
