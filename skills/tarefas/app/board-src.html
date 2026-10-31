@@ -90,6 +90,7 @@ const I18N = {
     "sync.conectando": "Conectando ao banco…", "sync.ok": "Sincronizado · {n} tarefas", "sync.indisp": "Banco indisponível",
     "sync.parou": "Sincronização parou", "sync.indice": "Índice não atualizou (o /boa-noite reconcilia)",
     "banner.semDb": "O banco deste artefato não respondeu nesta visualização. Abra a página no claude.ai para ver e editar as tarefas.",
+    "banner.semLocal": "O quadro local não respondeu. Inicie o Cortex e abra a URL fornecida por ele.",
     "banner.leitura": "Você tem acesso só de leitura a estas tarefas.",
     "banner.caiu": "A conexão com o banco caiu ({code}). Recarregue a página.",
     "aria.hoje": "Hoje",
@@ -117,7 +118,7 @@ const I18N = {
     "toast.recApagada": "Recorrente apagada (os cards que ela já gerou ficam)",
     "toast.ciclo": "Isso criaria um ciclo: a outra tarefa já está abaixo desta.",
     "toast.httpsOnly": "Use um link que comece com https://",
-    "toast.convInvalida": "Cole o link da conversa (claude://claude.ai/epitaxy/…), o id local_…, ou o UUID de uma sessão do Claude Code (claude --resume …)",
+    "toast.convInvalida": "Cole um link HTTPS, claude:// ou codex://threads/…, ou um comando claude/codex resume válido",
     "toast.convJa": "Essa conversa já está ligada",
     "toast.appNaoAbriu": "O app não abriu daqui. Copiei o link: cole na barra do navegador.",
     "toast.appNaoAbriu2": "O app não abriu daqui. Use {btn} na tarefa.",
@@ -142,7 +143,7 @@ const I18N = {
     "conv.abrir": "Abrir conversa", "conv.arquivada": "Conversa arquivada", "conv.abrirCurto": "Abrir",
     "conv.retomar": "Copiar comando para retomar", "conv.copiarCmd": "Copiar comando", "conv.copiarLink": "Copiar link",
     "conv.chipArq": "arquivada", "conv.nenhuma": "Nenhuma conversa ligada a esta tarefa.",
-    "conv.ph": "Link ou id da conversa (claude://…, local_…, UUID ou claude --resume …)", "conv.titPh": "Título (opcional)",
+    "conv.ph": "Link ou id da conversa (HTTPS, claude://…, codex://threads/…)", "conv.titPh": "Título (opcional)",
     "col.vazioEntrada": "Nada novo para triar.", "col.vazio": "Vazio.", "col.mostrando15": "Mostrando as 15 mais recentes. A Lista mostra todas.",
     "list.semProjeto": "Sem projeto", "list.abertas": "{n} abertas",
     "th.status": "Status", "th.tarefa": "Tarefa", "th.prio": "Prioridade", "th.prazo": "Prazo", "th.atualizada": "Atualizada",
@@ -158,7 +159,7 @@ const I18N = {
     "recs.vazio": "Crie uma aqui (ex.: \"Fechar o financeiro\", todo mês no dia 5). Quando chega o dia, ela vira um card em {col} no quadro.",
     "recs.nota": "Cada ocorrência vira um card em {col} com prazo no dia, e anda pelo quadro como qualquer tarefa. Enquanto o card anterior estiver aberto, não nasce outro.",
     "main.carregandoT": "Carregando as tarefas…", "main.carregando": "As tarefas ficam guardadas no banco deste artefato.",
-    "main.vazioT": "Nenhuma tarefa ainda", "main.vazio": "Escreva a primeira no campo acima e aperte Enter, ou peça ao Claude para registrar o que você está fazendo.",
+    "main.vazioT": "Nenhuma tarefa ainda", "main.vazio": "Escreva a primeira no campo acima e aperte Enter, ou peça ao seu agente para registrar o que você está fazendo.",
     "main.filtroT": "Nada com esses filtros", "main.filtro": "Limpe a busca ou troque o projeto e a tag.",
     "d.aria": "Detalhe da tarefa", "d.titulo": "Título", "d.fechar": "Fechar", "d.status": "Status", "d.prio": "Prioridade",
     "d.projetos": "Projetos", "d.projetosPh": "Site, Ferramentas", "d.projetosTitle": "Um ou mais, separados por vírgula; o primeiro é o principal",
@@ -167,7 +168,7 @@ const I18N = {
     "d.ligacoes": "Ligações", "rel.mae": "mãe", "rel.sub": "sub", "rel.ligada": "ligada", "rel.nenhuma": "Nenhuma ligação ainda.",
     "rel.tipoAria": "Tipo de ligação", "rel.ligarA": "Ligar a", "rel.subDe": "É subtarefa de", "rel.alvoAria": "Tarefa",
     "rel.escolha": "Escolha a tarefa…", "ligar": "Ligar", "remover": "remover", "rel.deixarSub": "Deixar de ser subtarefa",
-    "d.conversas": "Conversas no Claude", "d.links": "Links e evidências", "links.nenhum": "Nenhum link ainda.",
+    "d.conversas": "Conversas", "d.links": "Links e evidências", "links.nenhum": "Nenhum link ainda.",
     "links.rotPh": "Rótulo (ex.: PR #356)", "links.add": "Adicionar",
     "d.historico": "Histórico", "hist.notePh": "Anotar o que andou", "hist.anotar": "Anotar",
     "d.origem": "Origem: {o}", "del.pergunta": "Apagar de vez?", "del.apagar": "Apagar", "del.cancelar": "Cancelar", "del.ask": "Apagar tarefa",
@@ -177,6 +178,7 @@ const I18N = {
     "sync.conectando": "Connecting to the database…", "sync.ok": "Synced · {n} tasks", "sync.indisp": "Database unavailable",
     "sync.parou": "Sync stopped", "sync.indice": "Index did not update (/boa-noite will reconcile it)",
     "banner.semDb": "This artifact's database did not respond in this view. Open the page on claude.ai to see and edit the tasks.",
+    "banner.semLocal": "The local board did not respond. Start Cortex and open the URL it provides.",
     "banner.leitura": "You have read-only access to these tasks.",
     "banner.caiu": "The connection to the database dropped ({code}). Reload the page.",
     "aria.hoje": "Today",
@@ -204,7 +206,7 @@ const I18N = {
     "toast.recApagada": "Recurring task deleted (the cards it already created stay)",
     "toast.ciclo": "That would create a cycle: the other task is already below this one.",
     "toast.httpsOnly": "Use a link that starts with https://",
-    "toast.convInvalida": "Paste the conversation link (claude://claude.ai/epitaxy/…), its local_… id, or a Claude Code session UUID (claude --resume …)",
+    "toast.convInvalida": "Paste an HTTPS, claude:// or codex://threads/… link, or a valid claude/codex resume command",
     "toast.convJa": "That conversation is already linked",
     "toast.appNaoAbriu": "The app didn't open from here. I copied the link: paste it in the browser's address bar.",
     "toast.appNaoAbriu2": "The app didn't open from here. Use {btn} in the task.",
@@ -229,7 +231,7 @@ const I18N = {
     "conv.abrir": "Open conversation", "conv.arquivada": "Archived conversation", "conv.abrirCurto": "Open",
     "conv.retomar": "Copy resume command", "conv.copiarCmd": "Copy command", "conv.copiarLink": "Copy link",
     "conv.chipArq": "archived", "conv.nenhuma": "No conversation linked to this task.",
-    "conv.ph": "Conversation link or id (claude://…, local_…, UUID or claude --resume …)", "conv.titPh": "Title (optional)",
+    "conv.ph": "Conversation link or id (HTTPS, claude://…, codex://threads/…)", "conv.titPh": "Title (optional)",
     "col.vazioEntrada": "Nothing new to triage.", "col.vazio": "Empty.", "col.mostrando15": "Showing the 15 most recent. The List shows them all.",
     "list.semProjeto": "No project", "list.abertas": "{n} open",
     "th.status": "Status", "th.tarefa": "Task", "th.prio": "Priority", "th.prazo": "Due", "th.atualizada": "Updated",
@@ -245,7 +247,7 @@ const I18N = {
     "recs.vazio": "Create one here (e.g. \"Close the books\", every month on day 5). When the day comes, it becomes a card in {col} on the board.",
     "recs.nota": "Each occurrence becomes a card in {col}, due that day, and moves through the board like any task. While the previous card is open, no new one is created.",
     "main.carregandoT": "Loading tasks…", "main.carregando": "Tasks are stored in this artifact's database.",
-    "main.vazioT": "No tasks yet", "main.vazio": "Type the first one in the field above and press Enter, or ask Claude to record what you're working on.",
+    "main.vazioT": "No tasks yet", "main.vazio": "Type the first one in the field above and press Enter, or ask your agent to record what you're working on.",
     "main.filtroT": "Nothing matches these filters", "main.filtro": "Clear the search or change the project and tag.",
     "d.aria": "Task details", "d.titulo": "Title", "d.fechar": "Close", "d.status": "Status", "d.prio": "Priority",
     "d.projetos": "Projects", "d.projetosPh": "Website, Tools", "d.projetosTitle": "One or more, comma-separated; the first one is the main one",
@@ -254,7 +256,7 @@ const I18N = {
     "d.ligacoes": "Related tasks", "rel.mae": "parent", "rel.sub": "sub", "rel.ligada": "linked", "rel.nenhuma": "No related tasks yet.",
     "rel.tipoAria": "Relation type", "rel.ligarA": "Link to", "rel.subDe": "Is a subtask of", "rel.alvoAria": "Task",
     "rel.escolha": "Choose a task…", "ligar": "Link", "remover": "remove", "rel.deixarSub": "Stop being a subtask",
-    "d.conversas": "Claude conversations", "d.links": "Links and evidence", "links.nenhum": "No links yet.",
+    "d.conversas": "Conversations", "d.links": "Links and evidence", "links.nenhum": "No links yet.",
     "links.rotPh": "Label (e.g. PR #356)", "links.add": "Add",
     "d.historico": "History", "hist.notePh": "Note what moved forward", "hist.anotar": "Add note",
     "d.origem": "Source: {o}", "del.pergunta": "Delete for good?", "del.apagar": "Delete", "del.cancelar": "Cancel", "del.ask": "Delete task",
@@ -395,7 +397,10 @@ function banner(key, vars) { bannerSt = key ? { key, vars } : null; paintBanner(
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const isCli = c => String(c.id || "").startsWith("cli:") || (!c.link && !!c.retomar);
 const resumeCmd = c => c.retomar || ("claude --resume " + String(c.id || "").replace(/^cli:/, ""));
-const convLink = c => c.link || (isCli(c) ? "" : "claude://claude.ai/epitaxy/" + c.id);
+const convLink = c => {
+  const link = c.link || (/^local_[A-Za-z0-9-]+$/.test(c.id || "") ? "claude://claude.ai/epitaxy/" + c.id : "");
+  return /^(https:\/\/|claude:\/\/claude\.ai\/epitaxy\/local_|codex:\/\/threads\/)/.test(link) ? link : "";
+};
 function mainConv(tk) { const cs = tk.conversas || []; return cs.find(c => !c.arquivada) || cs[0] || null; }
 function convBtn(c, label) {
   if (isCli(c)) {
@@ -403,10 +408,20 @@ function convBtn(c, label) {
     return `<button type="button" class="conv ${c.arquivada ? "arch" : ""}" data-resume="${esc(cmd)}" title="${esc((c.titulo ? c.titulo + " · " : "") + cmd)}">${esc(label || t("conv.retomar"))}</button>`;
   }
   const link = convLink(c);
+  if (!link) return `<span class="conv">${esc(c.titulo || c.id || "")}</span>`;
   return `<a class="conv ${c.arquivada ? "arch" : ""}" href="${esc(link)}" target="_blank" rel="noopener" data-conv="${esc(link)}" title="${esc(c.titulo || "")}">${esc(label || (c.arquivada ? t("conv.arquivada") : t("conv.abrir")) + " ↗")}</a>`;
 }
 // Aceita link claude://, id local_…, UUID solto, cli:<uuid> ou "claude --resume <uuid>".
 function parseConv(raw) {
+  const value = String(raw || "").trim();
+  const codex = value.match(/^(?:codex:\/\/threads\/|codex:|codex resume )([0-9a-f-]{36})$/i);
+  if (codex && new RegExp("^" + UUID_RE.source + "$").test(codex[1])) return {
+    id: "codex:" + codex[1], link: "codex://threads/" + codex[1], provider: "codex"
+  };
+  if (/^https:\/\//.test(value)) {
+    try { const url = new URL(value); if (!url.username && !url.password) return { id: "url:" + url.href, link: url.href }; } catch (_) {}
+    return null;
+  }
   let m = String(raw || "").match(/local_[A-Za-z0-9-]{8,}/);
   if (m) return { id: m[0], link: "claude://claude.ai/epitaxy/" + m[0] };
   m = String(raw || "").match(UUID_RE);
@@ -419,7 +434,7 @@ async function copyText(txt, okKey, failMsg) { try { await navigator.clipboard.w
 const chains = {};
 function queue(key, fn) {
   const run = (chains[key] || Promise.resolve()).then(fn).catch(e => {
-    if (e && e.code === "invalid_argument" && canWrite && key !== "indice") { canWrite = false; render(); toast(t("toast.semPermissao")); }
+    if (e && e.code === "invalid_argument" && !db?.local && canWrite && key !== "indice") { canWrite = false; render(); toast(t("toast.semPermissao")); }
     else if (e && e.code === "quota_exceeded") toast(t("toast.cheio"));
     else if (key !== "indice") toast(t("toast.naoSalvou", { msg: (e && e.message) || t("err.desconhecido") }));
     else setSync("off", "sync.indice");
@@ -430,7 +445,7 @@ function queue(key, fn) {
 const col = () => db.collection("tasks");
 function indexEntry(tk) { return { t: tk.titulo, s: tk.status, p: projetosOf(tk)[0] || "", ps: projetosOf(tk), tags: tk.tags || [], k: tk.chaves || [], pai: tk.pai || null, u: tk.atualizado_em }; }
 function touchIndex(entries, after) {
-  if (!db) return;
+  if (!db || db.local) return; // local runtime updates the index atomically with each task
   const ref = db.doc("indice/ativos");
   const body = { itens: entries, atualizado_em: nowIso() };
   queue("indice", async () => {
@@ -445,7 +460,8 @@ function patchTask(id, patch, nota) {
   const body = Object.assign({}, patch, { atualizado_em: nowIso() });
   if (nota) body.historico = [{ em: body.atualizado_em, texto: nota, por: "pagina" }, ...(tk.historico || [])].slice(0, HIST_MAX);
   Object.assign(tk, body);
-  const w = queue(id, () => col().doc(id).update(body).then(() => true));
+  const ref = col().doc(id);
+  const w = queue(id, () => ref.update(body).then(() => true));
   touchIndex({ [id]: indexEntry(tk) }, w);
   render();
 }
@@ -671,7 +687,7 @@ function renderHint() {
 }
 function renderControls() {
   renderStatic();
-  $("#scopeName").textContent = ESCOPO.nome || t("tarefas");
+  $("#scopeName").textContent = window.CORTEX_LOCAL?.title || ESCOPO.nome || t("tarefas");
   $("#scopeSub").textContent = ESCOPO.sub || "";
   renderHint();
   const projetos = [...new Set(tasks.flatMap(projetosOf))].sort(cmpNome);
@@ -1055,10 +1071,10 @@ setInterval(subDia, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) subDia(); });
 render();
 (async () => {
-  try { db = window.claude ? await window.claude.use("db") : null; } catch (e) { db = null; }
-  if (!db) { loaded = true; canWrite = false; setSync("off", "sync.indisp"); banner("banner.semDb"); render(); return; }
+  try { db = window.CORTEX_LOCAL ? await window.cortexLocal.ready() : (window.claude ? await window.claude.use("db") : null); } catch (e) { db = null; }
+  if (!db) { loaded = true; canWrite = false; setSync("off", "sync.indisp"); banner(window.CORTEX_LOCAL ? "banner.semLocal" : "banner.semDb"); render(); return; }
   try {
-    const user = window.claude ? await window.claude.use("user") : null;
+    const user = !db.local && window.claude ? await window.claude.use("user") : null;
     const w = user ? await user.can("data.write") : null;
     if (w === false) { canWrite = false; banner("banner.leitura"); }
   } catch (e) {}

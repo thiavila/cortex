@@ -11,3 +11,11 @@
 
 Fases 1–5 mexem em arquivos que se cruzam pelo contrato (`SCHEMA.md`); a ordem de execução é: contrato primeiro, depois
 página e scripts em paralelo com as skills, e a verificação no fim.
+
+## v0.4 — Runtime local (beta, revisão pendente)
+
+| # | Fase | Entrega | Status |
+|---|---|---|---|
+| 7 | Runtime local | Setup escolhe artifact para Claude exclusivo ou quadro SQLite/HTTP/MCP local para qualquer outro agente; interface compartilhada, migração explícita e pacote Codex | Implementado; revisão cruzada pendente |
+
+Planos: [07-01](phases/07-runtime-local/07-01-PLAN.md), [07-02](phases/07-runtime-local/07-02-PLAN.md), [07-03](phases/07-runtime-local/07-03-PLAN.md).

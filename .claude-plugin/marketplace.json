@@ -1,12 +1,15 @@
 {
   "name": "cortex",
-  "owner": { "name": "Thiago Avila", "url": "https://github.com/thiavila" },
-  "description": "Marketplace do Cortex, o segundo cérebro para o Claude Code.",
+  "owner": {
+    "name": "Thiago Avila",
+    "url": "https://github.com/thiavila"
+  },
+  "description": "Marketplace do Cortex: tarefas e rotinas para agentes.",
   "plugins": [
     {
       "name": "cortex",
       "source": "./",
-      "description": "Quadro de tarefas num artefato do Claude, card por conversa, /bom-dia e /boa-noite."
+      "description": "Quadro de tarefas em artifact Claude ou local compartilhado, com bom-dia, boa-noite e import/export."
     }
   ]
 }

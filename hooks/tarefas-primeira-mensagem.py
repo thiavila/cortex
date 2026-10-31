@@ -62,9 +62,9 @@ elif re.match(r"^local_[A-Za-z0-9-]+$", os.environ.get("CLAUDE_CODE_HOST_SESSION
     ident += f" chave=conversa:{os.environ['CLAUDE_CODE_HOST_SESSION_ID']}"
 ident += f" cwd={cwd}"  # por último: o caminho pode ter espaços e vai até o fecha-colchete
 ctx = ("[tarefas] Primeira mensagem desta conversa. Antes de responder, siga a skill "
-       "`tarefas` § 1: leia config/preferencias e indice/ativos do quadro desta conta (ACHAR-QUADRO.md), veja se esta conversa já está "
+       "`tarefas` § 1: resolva primeiro o backend/perfil conforme LOCAL.md; leia config/preferencias e indice/ativos do quadro selecionado, veja se esta conversa já está "
        "ligada ou se há tarefa análoga, ligue ou crie o card na Entrada, e avise em UMA linha no topo da resposta. "
        "Pule em silêncio se as preferências mandarem ignorar, se for rotina agendada ou se o pedido for trivial. "
-       "Se a ferramenta ArtifactData não existir nesta sessão, ignore este aviso. "
+       "No modo artifact, sem ArtifactData, ignore este aviso; no modo local use a CLI/MCP configurada. Sem perfil/seleção conhecida e sem ArtifactData, não crie banco nem escolha perfil automaticamente. "
        f"[{ident}]")
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}, ensure_ascii=False))

@@ -4,6 +4,13 @@
 
 Procedimento único, usado por `tarefas`, `quadro-tarefas`, `tarefas-io`, `fechar`, `/bom-dia` e `/boa-noite`.
 
+## Antes da descoberta de artifacts
+
+Resolver primeiro a seleção descrita em `LOCAL.md`. Em backend `local`, ler apenas o perfil explicitamente
+selecionado e validar o UUID com o runtime; esse é o quadro. Não listar artifacts nem usar `mine`, URLs do
+Claude ou `quadros.py` para descobrir um quadro local. Sem seleção fora do Claude, executar o setup antes
+de checar capacidades. As regras abaixo são somente do backend `artifact` e do Claude legado.
+
 **Princípio:** cada pessoa tem um quadro por conta do Claude. O quadro é um artefato da própria conta, e
 só a conta dona o acha na sua lista de artefatos (`Artifact list`, "mine"). Nada de escolher pelo nome do
 app, pela pasta ou por `CLAUDE_CONFIG_DIR`. O arquivo local é só um atalho para não listar toda vez.
@@ -20,7 +27,7 @@ a não ser que a falta mude o resultado para a pessoa (aí uma linha no fim).
 
 | Ferramenta | Sem ela |
 |---|---|
-| `ArtifactData`, `Artifact` | o quadro não é acessível nesta sessão (Codex, Gemini, Claude Code sem login do claude.ai, ou um CLI em que os artefatos ainda não estão liberados): parar e dizer em uma linha que o quadro precisa de uma sessão com artefatos do Claude (o app desktop, aba Code) |
+| `ArtifactData`, `Artifact` | neste backend artifact, parar e explicar que são necessárias ferramentas de artifacts do Claude; para outro agente, primeiro seguir o setup de `LOCAL.md`, sem trocar backend automaticamente |
 | `get_session` (`"self"`) | a conversa vem do aviso do hook: `sessao=`, `cwd=`, `entrada=`; no CLI a chave é `conversa:cli:<sessao>` e o título é a primeira mensagem. Sem aviso do hook: `cwd` = a pasta atual, conversa sem chave (não ligar) |
 | `set_session_title` | não renomear nada (nem a própria conversa, nem propor `✏️` no `/boa-noite`) |
 | `list_sessions`, `list_events` | conversas pelos transcritos locais: `sh <skills>/tarefas/py <skills>/boa-noite/conversas.py extrair --backend transcritos …` (o `/boa-noite` já usa o script; o `/bom-dia` lê o manifesto dele em vez de `list_events`) |
