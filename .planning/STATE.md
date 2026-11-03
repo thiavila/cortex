@@ -1,4 +1,28 @@
+---
+gsd_state_version: "1.0"
+milestone: v0.3
+milestone_name: (agnóstico)
+status: unknown
+last_updated: "2026-11-03T20:31:16.566Z"
+last_activity: 2026-11-03
+last_activity_desc: "Quick task 261103-nu7: Codex reminders installed locally; user hook trust pending."
+state_head: 8e6d837e4052deffdc5fcc548de28746432fe402
+progress:
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 0
+---
+
 # Estado
+
+Last activity: 2026-11-03 - Quick task 261103-nu7: Codex reminders installed locally; user hook trust pending.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 261103-nu7 | Codex reminder hooks installed locally; user hook trust pending | 2026-11-03 | 8e6d837 | pending | [261103-nu7-instalar-lembrete-cortex-no-codex-e-dist](./quick/261103-nu7-instalar-lembrete-cortex-no-codex-e-dist/) |
 
 - Milestone: v0.3 (agnóstico). Branch `v0.3-agnostico`, PR thiavila/cortex#1.
 - Fases 1–6: feitas. E2E com pessoa en-US (Asana falso, sem git, sem gravador) passou; instalação limpa num
