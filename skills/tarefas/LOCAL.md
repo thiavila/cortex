@@ -140,8 +140,14 @@ Guardar links/comandos de retomada apenas quando a plataforma os fornecer ou doc
 
 No `/boa-noite`, marque o trecho resumido por plataforma/conversa no diário e só avance o cursor depois de persistir
 o resumo. Isso evita repetir fechamentos quando o histórico é relido. Arquivar/renomear continua condicionado às
-preferências e às permissões do host. Hook automático do Claude não implica hook equivalente nos outros agentes;
-até existir integração validada, ligar o card ao invocar a skill. Memória/instruções globais só com pedido explícito.
+preferências e às permissões do host.
+
+O pacote Codex declara `hooks/codex.json`: lembretes em cada mensagem humana e em início/retomada/compactação.
+O hook só fornece contexto; o agente resolve o perfil, respeita as preferências e confirma o resultado da escrita.
+Instalações somente de skills podem optar por `scripts/install_codex_hooks.py` (ver README); não combinar os dois
+modos de hook. Hooks exigem revisão e confiança no próprio Codex. Sem o hook ativo, ligar o card ao invocar a skill.
+Somente leitura ou pedido para não registrar proíbe também escrita no quadro. A instalação não escolhe perfil,
+não modifica memórias/AGENTS globais nem concede confiança a si mesma. Memória/instruções globais só com pedido explícito.
 
 ## Exportar e migrar
 

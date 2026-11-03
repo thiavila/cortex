@@ -1,9 +1,9 @@
 {
   "name": "cortex",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Tasks and daily routines with a local board shared across agents.",
   "skills": "./skills/",
-  "hooks": [],
+  "hooks": "./hooks/codex.json",
   "interface": {
     "displayName": "Cortex",
     "shortDescription": "Tasks across your agents",

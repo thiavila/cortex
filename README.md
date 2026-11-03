@@ -51,6 +51,40 @@ codex plugin add cortex@cortex
 
 Para testar um checkout local no Codex, use `codex plugin marketplace add /caminho/absoluto/cortex` e depois
 `codex plugin add cortex@cortex`. Reabra uma sessão e invoque `quadro-tarefas` (no Claude, `/cortex:quadro-tarefas`).
+
+### Lembretes do quadro no Codex (0.4.2)
+
+O pacote Codex inclui `hooks/codex.json`, separado do hook Claude. Ele lembra o agente de ligar a conversa ao
+card e registrar decisões, entregas e bloqueios em cada mensagem humana; início, retomada e compactação
+reintroduzem a orientação. O hook só injeta contexto: não lê transcritos, não chama LLM, não grava cards,
+não escolhe perfil e não altera memórias ou `AGENTS.md`. O agente continua seguindo as preferências do quadro,
+pedidos de somente leitura e as permissões do usuário. Não há hook Stop nem turno extra automático.
+
+Depois de instalar/atualizar o plugin, revise e confie nos hooks em **Settings > Hooks** do Codex ou em `/hooks`
+no CLI. Instalação não significa confiança automática. Alterações futuras exigem nova revisão. Sem essa etapa,
+o Codex pode descobrir os hooks e ainda assim pular sua execução.
+
+Quem usa somente as skills, sem instalar o plugin nativo, pode instalar o lembrete separadamente no macOS/Linux/WSL:
+
+```sh
+python3 scripts/install_codex_hooks.py
+# Outro diretório de configuração, para teste:
+python3 scripts/install_codex_hooks.py --codex-home /caminho/isolado
+# Remover somente os grupos exatos que o instalador registrou:
+python3 scripts/install_codex_hooks.py --remove
+```
+
+Esse instalador mescla `hooks.json` preservando outros hooks, guarda backup e uma cópia versionada do runtime em
+`<CODEX_HOME>/cortex-hooks/` (padrão `~/.codex`). Não depende de manter o checkout original no mesmo caminho.
+Repetir não duplica os grupos; hooks Cortex editados manualmente exigem reconciliação explícita. Grupos removidos
+e instalação interrompida são recuperados na próxima execução. Cada atualização do snapshot exige nova confiança.
+Ao atualizar as skills, use a versão atual instalada; a cópia do instalador serve apenas de fallback. A remoção deixa
+as cópias e backups disponíveis para recuperação. Use **um** modo: hook do plugin nativo **ou** instalador separado.
+O instalador não edita `config.toml` nem marca hooks como confiáveis; habilite o suporte a hooks no host se necessário.
+
+Memória e MD global podem expressar a preferência pessoal de usar o quadro, mas o plugin não precisa reescrevê-los.
+A política fica nas skills e preferências; o hook traz o lembrete no momento de agir. Isso melhora a consistência,
+mas não é uma prova de que o agente efetivamente gravou o card: a confirmação continua dependendo do resultado da operação.
 O pacote Codex contém as seis skills; o MCP é configurado depois, com o UUID real do quadro.
 Outros clientes podem usar as mesmas skills e a CLI/MCP, pelo mecanismo de instalação que suportarem.
 
