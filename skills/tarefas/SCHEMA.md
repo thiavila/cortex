@@ -357,6 +357,6 @@ para subcoleções (`tasks/<id>/historico/<ts>`).
 4. Ligação em `relacionadas` é sempre gravada nos dois lados (batch com as duas tarefas + índice).
 5. Nada de segredo, token ou dado de cartão em nenhum campo.
 
-### `config/roteamento` — identidade do host (opt-in)
+### `config/roteamento` — pasta e/ou identidade do host (opt-in)
 
-`{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional"}]}`. Regras específicas da pessoa/empresa, cadastradas somente por pedido explícito. A identidade vem da autenticação real do host; `organizacao`, quando presente, também precisa coincidir. Uma única correspondência seleciona o quadro; zero/múltiplas exigem escolha explícita, sem fallback. Não é controle de acesso ao SQLite. Não aplica a outros hosts por analogia.
+`{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional",pastas:["/caminho/absoluto"]}]}`. Regras específicas da pessoa/empresa, cadastradas somente por pedido explícito. Cada regra tem `conta`, `pastas` (lista não vazia de caminhos absolutos; `~` é expandido) ou ambos. Regra com `pastas` vale quando a pasta da sessão está dentro de uma delas, e a pasta mais profunda vence; ela tem precedência sobre regras só de conta. A identidade vem da autenticação real do host; `organizacao`, quando presente, também precisa coincidir. Uma única correspondência seleciona o quadro; zero/múltiplas exigem escolha explícita, sem fallback. Não é controle de acesso ao SQLite. Não aplica a outros hosts por analogia.

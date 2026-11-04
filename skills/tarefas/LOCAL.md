@@ -21,17 +21,17 @@ o quadro. Nunca inferir perfil por cwd, nome da empresa, `CLAUDE_CONFIG_DIR` ou 
 `CORTEX_LOCAL_DIR`, senão Application Support/Cortex no macOS, LOCALAPPDATA/Cortex no Windows ou
 XDG_DATA_HOME/cortex no Linux (com os padrões do sistema). Dados ficam fora do plugin/repositório.
 
-### Roteamento opcional por identidade do host
+### Roteamento opcional por pasta e/ou conta do host
 
-A política fica em `config/roteamento` de cada quadro, não nas skills. Só aplicar regras ativas para o host atual. No Claude, antes da descoberta por artifact ou de pedir perfil, executar:
+A política fica em `config/roteamento` de cada quadro, não nas skills. Só aplicar regras ativas para o host atual. No Claude, antes da descoberta por artifact ou de pedir perfil, executar, passando a pasta da sessão (o `cwd` do aviso do hook, quando houver):
 
 ```sh
-python3 <skills>/tarefas/setup.py resolve --host claude
+python3 <skills>/tarefas/setup.py resolve --host claude --cwd '<pasta da sessão>'
 ```
 
-O comando lê a conta realmente autenticada com `claude auth status` e compara com as regras persistidas. Não escolhe conta, não troca login nem deduz identidade por `CLAUDE_CONFIG_DIR`, pasta, nome da empresa ou conector externo. `--profile`/`CORTEX_PROFILE` explicitamente definidos pelo usuário têm precedência: usar `status` e não executar `resolve`. Caso contrário, com uma correspondência, usar exatamente o `board`/`root` retornado. `routing: unconfigured` significa nenhuma regra ativa para este host: manter o fluxo habitual de perfil ou artifact legado. `routing_not_found` significa que há regra ativa, mas nenhuma corresponde; nesse caso, assim como em erro/ambiguidade, perguntar e nunca cair no artifact. Se houver `--profile`/`CORTEX_PROFILE` explicitamente escolhido pelo usuário nesta sessão, respeitar essa escolha usando `status`.
+Sem `--cwd`, usa o diretório atual do processo. Ordem de decisão: (1) regra com `pastas` que contém a pasta da sessão, com a pasta mais profunda vencendo (`selected_by: folder`); (2) regra só de conta, comparada com a conta realmente autenticada em `claude auth status` (`selected_by: authenticated_host_identity`). Regras só de pasta não consultam o login. O comando não escolhe conta, não troca login nem deduz identidade por `CLAUDE_CONFIG_DIR`, nome da empresa ou conector externo; pasta só decide quando a própria pessoa cadastrou a regra de pasta. `--profile`/`CORTEX_PROFILE` explicitamente definidos pelo usuário têm precedência: usar `status` e não executar `resolve`. Caso contrário, com uma correspondência, usar exatamente o `board`/`root` retornado. `routing: unconfigured` significa nenhuma regra ativa para este host: manter o fluxo habitual de perfil ou artifact legado. `routing_not_found` significa que há regra ativa, mas nenhuma corresponde à pasta nem à conta; nesse caso, assim como em erro/ambiguidade, perguntar e nunca cair no artifact.
 
-Esquema opt-in: `{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional"}]}`. Os valores concretos pertencem ao banco de cada pessoa. Outros hosts continuam com a seleção explícita habitual; nenhuma regra Claude se aplica a eles. Antes de cadastrar/alterar regras, confirmar com o usuário as contas e quadros envolvidos. Não criar política automática para outros usuários do plugin.
+Esquema opt-in: `{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional",pastas:["/caminho/absoluto"]}]}`. Cada regra tem `conta`, `pastas` ou ambos; com ambos, as duas precisam coincidir. Útil quando a mesma conta é usada para mais de um escopo (ou várias contas para o mesmo): a pasta diz do que é o trabalho. Os valores concretos pertencem ao banco de cada pessoa. Outros hosts continuam com a seleção explícita habitual; nenhuma regra Claude se aplica a eles. Antes de cadastrar/alterar regras, confirmar com o usuário as contas, pastas e quadros envolvidos. Não criar política automática para outros usuários do plugin.
 
 Ler a seleção sem efeitos colaterais:
 
