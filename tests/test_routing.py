@@ -140,5 +140,35 @@ class RoutingTest(unittest.TestCase):
                 self.assertEqual(resolve_host(self.tmp.name, 'claude')['board'], self.a)
             auth.assert_not_called()
 
+    def test_login_is_only_asked_when_an_account_can_change_the_winner(self):
+        base = self.folders()
+        failing = lambda: (_ for _ in ()).throw(RoutingError('identity_unavailable: down'))
+        self.rules(self.a, {'conta':'user@company.example', 'pastas':[str(base / 'Company')]})
+        self.rules(self.b, {'pastas':[str(base / 'Company/app')]})
+        self.assertEqual(select_board(self.store, 'claude', failing, cwd=base / 'Company/app')['board'], self.b)
+        with self.assertRaisesRegex(RoutingError, 'identity_unavailable'):
+            select_board(self.store, 'claude', failing, cwd=base / 'Company')
+        self.rules(self.a, {'pastas':[str(base / 'Company')]}, {'conta':'user@company.example', 'pastas':[str(base / 'Company')]})
+        self.rules(self.b, {'pastas':[str(base / 'Personal')]})
+        self.assertEqual(select_board(self.store, 'claude', failing, cwd=base / 'Company')['board'], self.a)
+
+    def test_null_fields_and_organization_without_account_are_invalid(self):
+        base = self.folders()
+        for rule in ({'conta':'user@company.example', 'pastas':None}, {'conta':None, 'pastas':[str(base)]},
+                     {'pastas':[str(base)], 'organizacao':'org-a'}, {'pastas':[str(base) + '\0x']}):
+            self.rules(self.a, rule)
+            with self.assertRaisesRegex(RoutingError, 'invalid_routing'): configured_rules(self.store, 'claude')
+        self.rules(self.a, {'pastas':[str(base)]})
+        with self.assertRaisesRegex(RoutingError, 'invalid_cwd'):
+            select_board(self.store, 'claude', lambda: None, cwd=str(base) + '\0x')
+
+    def test_case_insensitive_volume_matches_by_identity(self):
+        base = self.folders()
+        other_case = Path(str(base / 'Company').swapcase())
+        if not other_case.exists():
+            self.skipTest('case-sensitive filesystem')
+        self.rules(self.a, {'pastas':[str(other_case)]})
+        self.assertEqual(select_board(self.store, 'claude', lambda: None, cwd=base / 'Company/app')['board'], self.a)
+
 
 if __name__ == '__main__': unittest.main()
