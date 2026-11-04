@@ -37,7 +37,7 @@ def agents_list(values):
     for value in values:
         for item in value.split(","):
             item = " ".join(item.strip().lower().split())
-            if item in ("claude code", "claude desktop", "claude.ai"):
+            if item in ("claude code", "claude-code", "claude cli", "claude-cli", "claude desktop", "claude-desktop", "claude.ai"):
                 item = "claude"
             if not item or len(item) > 64 or any(ord(c) < 32 for c in item):
                 raise SetupError("invalid_agents: supply at least one agent name")

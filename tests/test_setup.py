@@ -47,6 +47,12 @@ class SetupTest(unittest.TestCase):
                 self.assertEqual(value["backend"], "local")
                 self.assertEqual(value["board"], BOARD)
 
+    def test_claude_cli_aliases_preserve_artifact_mode(self):
+        for alias in ['claude-code', 'Claude CLI', 'claude-cli', 'claude-desktop']:
+            with self.subTest(alias=alias), self.init_mock() as initialize:
+                self.assertEqual(self.configure([alias])['backend'], 'artifact')
+                initialize.assert_not_called()
+
     def test_repeated_setup_keeps_board_even_with_new_agent(self):
         with self.init_mock() as initialize:
             first = self.configure(["codex"])

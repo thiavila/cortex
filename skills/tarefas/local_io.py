@@ -10,7 +10,7 @@ import sqlite3
 import sys
 import tempfile
 
-from local_store import Store, LocalError, encode, fail, parse_json, identifier
+from local_store import Store, LocalError, encode, fail, parse_json, identifier, SHARED_KEY_PREFIXES
 
 COLLECTIONS = ('tasks', 'dias', 'arquivo', 'recorrentes', 'config')
 MAX_PACKAGE = 20 * 1024 * 1024
@@ -68,6 +68,17 @@ def import_package(store, board, package, digest, apply=False):
         used = db.execute("SELECT 1 FROM docs WHERE board=? AND (collection IN ('tasks','dias','arquivo','recorrentes') OR (collection='config' AND id='cortex_import')) LIMIT 1", (board,)).fetchone()
         if used:
             fail('conflict', 'Import requires a new empty destination board; source is never changed')
+        identities = {}
+        for docid, data in package['tasks'].items():
+            if not isinstance(data, dict):
+                fail('invalid_argument', 'Every exported document must be an object')
+            store._validate_task(data)
+            for key in data.get('chaves', []):
+                if key.split(':', 1)[0] in SHARED_KEY_PREFIXES:
+                    continue
+                owner = identities.setdefault(key, docid)
+                if owner != docid:
+                    fail('conflict', f'Duplicate identity {key!r} in tasks {owner!r} and {docid!r}')
         for collection in COLLECTIONS:
             for docid, data in package[collection].items():
                 identifier(docid)

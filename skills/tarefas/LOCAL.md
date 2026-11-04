@@ -98,6 +98,10 @@ Nos passos das skills, substitua a tool pelo dispatcher local. Não chamar `Arti
 de acesso. Criação não substitui um documento existente. Toda alteração/exclusão usa a versão recém-lida;
 conflito → reler e reconciliar, nunca retirar `if_version`. Arrays precisam preservar dados atuais ao fazer união.
 Repetir uma escrita com resultado ambíguo usa o mesmo `mutation_id` e conteúdo; não gerar ID novo antes de reconciliar.
+O runtime guarda os resultados completos dos 10 mil recibos mais recentes, até 64 MiB. Resultados antigos são
+compactados, mantendo permanentemente ID/digest para impedir reaplicação. `receipt_expired` significa que a
+operação já foi aplicada: reler o estado, nunca tentar de novo com outro ID. Os pequenos marcadores crescem com o
+histórico de escritas; a janela limita os payloads de respostas, sem bloquear novas operações.
 Confira erros do processo e recibos antes de informar sucesso. Filtros só conforme schemas anunciados no MCP;
 sem operador suportado, listar paginado e filtrar no agente, sem ignorar a condição do usuário.
 

@@ -16,6 +16,7 @@ MAX_DOC = 256 * 1024
 MAX_DOCUMENTS = 25000
 MAX_BOARD_BYTES = 64 * 1024 * 1024
 MAX_RECEIPTS = 10000
+MAX_RECEIPT_BYTES = 64 * 1024 * 1024
 COLLECTIONS = {'tasks', 'dias', 'arquivo', 'recorrentes', 'config', 'indice'}
 READS = {'get', 'list', 'query', 'info'}
 WRITES = {'set', 'update', 'delete', 'batch', 'rebuild-index'}
@@ -211,6 +212,8 @@ class Store:
                 if old:
                     if old['digest'] != digest:
                         fail('conflict', 'mutation_id already used for different request')
+                    if old['result'] == '':
+                        fail('receipt_expired', 'Mutation already applied; cached result expired. Reread state; do not repeat with a new mutation_id')
                     db.commit()
                     return json.loads(old['result'])
             result = self._operation(db, board, request, info)
@@ -219,13 +222,9 @@ class Store:
                 self._index(db, board)
                 db.execute('UPDATE boards SET revision=revision+1 WHERE id=?', (board,))
                 if receipt:
-                    if db.execute('SELECT COUNT(*) FROM receipts WHERE board=?', (board,)).fetchone()[0] >= MAX_RECEIPTS:
-                        fail('quota_exceeded', 'Mutation receipt limit reached; export to a new board')
                     packed_result = encode(result)
-                    receipt_bytes = db.execute('SELECT COALESCE(SUM(LENGTH(CAST(result AS BLOB))),0) FROM receipts WHERE board=?', (board,)).fetchone()[0]
-                    if receipt_bytes + len(packed_result.encode('utf-8')) > MAX_BOARD_BYTES:
-                        fail('quota_exceeded', 'Mutation receipt storage limit reached; export to a new board')
                     db.execute('INSERT INTO receipts VALUES (?,?,?,?)', (board, receipt, digest, packed_result))
+                    self._compact_receipts(db, board)
             db.commit()
             return result
         except sqlite3.IntegrityError:
@@ -239,6 +238,19 @@ class Store:
             raise
         finally:
             db.close()
+
+    def _compact_receipts(self, db, board):
+        # Keep bounded response payloads, but retain small identity/digest markers
+        # permanently. Dropping those markers could reapply an old batch on retry.
+        # Lazy index migration also covers existing databases, within this write.
+        db.execute("CREATE INDEX IF NOT EXISTS receipts_active ON receipts(board) WHERE result != ''")
+        rows = db.execute("SELECT rowid,LENGTH(CAST(result AS BLOB)) AS size FROM receipts WHERE board=? AND result != '' ORDER BY rowid DESC", (board,)).fetchall()
+        count, size = 0, 0
+        for row in rows:
+            count += 1
+            size += row['size']
+            if count > MAX_RECEIPTS or size > MAX_RECEIPT_BYTES:
+                db.execute("UPDATE receipts SET result='' WHERE rowid=?", (row['rowid'],))
 
     def _operation(self, db, board, req, info):
         op = req.get('op')

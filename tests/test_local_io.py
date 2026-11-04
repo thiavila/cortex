@@ -35,7 +35,8 @@ class MigrationTest(unittest.TestCase):
     def test_invalid_package_rolls_back_entire_import(self):
         broken = copy.deepcopy(self.package)
         broken['tasks']['two'] = {'titulo':'Duplicate identity', 'chaves':['external:test']}
-        with self.assertRaises(LocalError): import_package(self.store, self.dest, broken, 'digest', True)
+        with self.assertRaisesRegex(LocalError, "external:test.*one.*two"):
+            import_package(self.store, self.dest, broken, 'digest', True)
         self.assertEqual(export_package(self.store, self.dest)['tasks'], {})
     def test_import_keeps_shared_evidence_without_merging_cards(self):
         package = copy.deepcopy(self.package)

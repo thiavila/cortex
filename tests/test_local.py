@@ -215,9 +215,30 @@ class LocalTests(unittest.TestCase):
             first = self.call(op='list', collection='tasks', limit=100)
             self.assertEqual(1, len(first['docs']))
             self.assertTrue(first['next_cursor'])
-        with patch('local_store.MAX_RECEIPTS', 0), self.assertRaises(LocalError):
+        with patch('local_store.MAX_RECEIPTS', 0):
             self.call(op='set', collection='tasks', id='receipt', data={'titulo': 'Receipt'}, mutation_id='r')
-        self.assertFalse(self.call(op='get', collection='tasks', id='receipt')['exists'])
+        self.assertTrue(self.call(op='get', collection='tasks', id='receipt')['exists'])
+
+    def test_receipts_compact_without_stopping_writes_or_reapplying_old_requests(self):
+        first = dict(op='set', collection='tasks', id='receipts', data={'titulo':'Original'}, mutation_id='old')
+        self.call(**first)
+        with patch('local_store.MAX_RECEIPTS', 3):
+            for n in range(8):
+                request = dict(op='update', collection='tasks', id='receipts', if_version=n+1,
+                               data={'titulo':str(n)}, mutation_id='edit-'+str(n))
+                result = self.call(**request)
+                self.assertEqual(result, self.call(**request))
+        with self.assertRaisesRegex(LocalError, 'already applied') as error:
+            self.call(**first)
+        self.assertEqual(error.exception.code, 'receipt_expired')
+        self.assertEqual(self.call(op='get',collection='tasks',id='receipts')['version'],9)
+        with self.assertRaisesRegex(LocalError, 'mutation_id'):
+            self.call(**{**first, 'data':{'titulo':'Changed'}})
+        # Response-byte eviction is separate from the board data quota.
+        with patch('local_store.MAX_RECEIPT_BYTES', 1):
+            self.call(op='update',collection='tasks',id='receipts',if_version=9,
+                      data={'titulo':'Still writable'},mutation_id='byte-limit')
+        self.assertEqual(self.call(op='get',collection='tasks',id='receipts')['version'],10)
 
     def test_server_rejects_unsafe_persisted_theme(self):
         self.call(op='update', collection='config', id='tema', if_version=1, data={'css': ':root { background: url(https://unrelated.invalid); }'})

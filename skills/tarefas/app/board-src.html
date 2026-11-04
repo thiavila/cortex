@@ -502,7 +502,7 @@ function parseQuick(text) {
   return Object.assign(p, { titulo });
 }
 let indiceIds = new Set();
-function newId(titulo) { const base = idSlug(titulo); let id = base, n = 2; while (byId(id) || indiceIds.has(id)) id = base + "-" + n++; return id; }
+function newId(titulo) { const base = idSlug(titulo); if (db?.local) return base.slice(0, 23) + "-" + crypto.randomUUID(); let id = base, n = 2; while (byId(id) || indiceIds.has(id)) id = base + "-" + n++; return id; }
 async function addTask(text) {
   if (!db || !canWrite) { toast(t("toast.semDb")); return; }
   const p = parseQuick(text); if (!p.titulo) return;
@@ -595,7 +595,8 @@ async function materializar() {
         await col().doc(aberta.id).update({ historico: [{ em: now, texto: t("hist.recAberta", { d: fmtData(alvo) }), por: "pagina" }, ...(aberta.historico || [])].slice(0, HIST_MAX), atualizado_em: now });
       } else {
         const id = recTaskId(r.id, alvo), ref = col().doc(id);
-        if (!(await ref.get()).exists) {
+        const existing = await ref.get();
+        if (!existing.exists && !(db.local && existing.version > 0)) {
           const body = {
             titulo: r.titulo, status: "a_fazer", resolucao: null, prioridade: r.prioridade || "media", area: r.area || areaPadrao(),
             projeto: r.projeto || "", projetos: r.projeto ? [r.projeto] : [], tags: [...new Set([...(r.tags || []), "recorrente:" + r.id])], chaves: ["recorrente:" + r.id + "@" + alvo],
@@ -635,7 +636,7 @@ function saveRec(form) {
     Object.assign(editing, body);
     queue("rec:" + editing.id, () => db.doc("recorrentes/" + editing.id).update(body).then(() => true));
   } else {
-    const base = idSlug(titulo); let id = base, k = 2;
+    const base = idSlug(titulo); let id = db.local ? base.slice(0, 3) + "-" + crypto.randomUUID() : base, k = 2;
     while (recs.some(x => x.id === id)) id = base + "-" + k++;
     Object.assign(body, { ativo: true, area: areaPadrao(), contexto: "", ultima: addDays(regra.inicio, -1), criado_em: now });
     recs.push(Object.assign({ id }, body));
@@ -1098,7 +1099,7 @@ render();
   }, () => { recLoaded = true; });
   col().onSnapshot(snap => {
     tasks = snap.docs.map(d => { const x = Object.assign({ id: d.id }, d.data()); x.status = stId(x.status); if (!PRIO_ORD.hasOwnProperty(x.prioridade)) x.prioridade = "media"; return x; });
-    const first = !loaded; loaded = true; setSync("ok", "sync.ok", { n: tasks.length }); render(); if (first) materializar();
+    const first = !loaded; loaded = true; setSync("ok", "sync.ok", { n: tasks.length }); if (bannerSt?.key === "banner.caiu") banner(null); render(); if (first) materializar();
   }, err => { setSync("off", "sync.parou"); banner("banner.caiu", { code: err && err.code }); });
 })();
 </script>

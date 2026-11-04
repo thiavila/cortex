@@ -12,7 +12,7 @@
     if (!token) token = savedToken;
   } catch (_) { /* In-memory token still works when storage is unavailable. */ }
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
-  const cache = new Map(), subscriptions = new Set();
+  const cache = new Map(), subscriptions = new Set(), ownVersions = new Map();
   let epoch = 0;
   const copy = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const fault = (code, message) => Object.assign(new Error(message), { code });
@@ -43,12 +43,19 @@
     if (!previous || item.version >= previous.version) cache.set(path, copy(item));
   }
   async function readCollection(collection) {
-    const docs = []; let cursor;
-    do {
-      const page = await call({ op: "list", collection, limit: 200, ...(cursor ? { cursor } : {}) });
-      docs.push(...page.docs); cursor = page.next_cursor;
-    } while (cursor);
-    return { docs };
+    for (let attempt = 0; ; attempt++) {
+      const docs = []; let cursor;
+      try {
+        do {
+          const page = await call({ op: "list", collection, limit: 200, ...(cursor ? { cursor } : {}) });
+          docs.push(...page.docs); cursor = page.next_cursor;
+        } while (cursor);
+        return { docs };
+      } catch (error) {
+        // Only reads restart; never retry a stale mutation or publish a partial list.
+        if (!cursor || error.code !== "conflict" || attempt >= 2) throw error;
+      }
+    }
   }
   async function poll(sub) {
     if (!sub.active || sub.busy) { if (sub.busy) sub.again = true; return; }
@@ -60,14 +67,14 @@
       if (!sub.active) return;
       if (started !== epoch) { sub.again = true; return; }
       const digest = JSON.stringify(result);
-      if (digest !== sub.last || sub.force) {
-        sub.last = digest; sub.force = false;
+      if (digest !== sub.last || sub.force || sub.failed) {
+        sub.last = digest; sub.force = false; sub.failed = false;
         if (sub.id == null) {
           result.docs.forEach(item => remember(sub.collection, item));
           sub.next({ docs: result.docs.map(snapshot) });
         } else { remember(sub.collection, result); sub.next(snapshot(result)); }
       }
-    } catch (err) { if (sub.active && sub.error) sub.error(err); }
+    } catch (err) { sub.failed = true; if (sub.active && sub.error) sub.error(err); }
     finally {
       sub.busy = false;
       if (sub.active) {
@@ -101,14 +108,25 @@
       delete() { return write("delete"); },
     };
     async function write(op, data) {
-      if (op !== "set" && !known) await ref.get();
+      if (op !== "set" && !known) throw fault("conflict", "Read the document before editing / Leia o documento antes de editar.");
       const request = { op, collection, id, mutation_id: crypto.randomUUID() };
       if (data !== undefined) request.data = data;
       // set is deliberately create-only: it cannot overwrite an existing card.
-      if (op !== "set") request.if_version = known.version;
+      if (op !== "set") {
+        let version = known.version;
+        const advances = ownVersions.get(path);
+        // A queued edit may follow our own successful write. Advance only over
+        // those exact versions; external writes must still fail CAS, without retry.
+        while (advances?.has(version)) version = advances.get(version);
+        request.if_version = version;
+      }
       epoch++;
       try {
         const result = await call(request);
+        if (op !== "set") {
+          if (!ownVersions.has(path)) ownVersions.set(path, new Map());
+          ownVersions.get(path).set(request.if_version, result.version);
+        }
         known = copy(result); remember(collection, result); return snapshot(result);
       } finally { epoch++; refresh(); }
     }

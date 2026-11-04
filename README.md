@@ -88,6 +88,13 @@ mas não é uma prova de que o agente efetivamente gravou o card: a confirmaçã
 O pacote Codex contém as seis skills; o MCP é configurado depois, com o UUID real do quadro.
 Outros clientes podem usar as mesmas skills e a CLI/MCP, pelo mecanismo de instalação que suportarem.
 
+### Validação antes de publicar alterações
+
+Use `make ci` para os testes Python/Node e os contratos de empacotamento. Depois de commitar em uma branch
+que contém a main atual, `make ci-local` testa uma cópia limpa do commit, registra o status `local-ci` e faz
+o push. `bash scripts/ci/local-ci.sh --dry-run` testa sem publicar. O CI oficial executa os mesmos checks
+em Linux; como são baratos, continuam rodando mesmo com atestado local. PRs draft não executam os jobs.
+
 O modo artifact exige `Artifact` e `ArtifactData`, normalmente no app desktop Claude, aba Code. Sem essas
 ferramentas o Cortex explica a limitação; não muda de backend silenciosamente.
 

@@ -1,0 +1,34 @@
+name: local-ci-gate
+on:
+  workflow_call:
+permissions:
+  contents: read
+  statuses: read
+jobs:
+  attestation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Inspect local attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          if [ -z "$HEAD_SHA" ]; then exit 0; fi
+          tree=$(git rev-parse 'HEAD^{tree}')
+          gh api "repos/$REPO/commits/$HEAD_SHA/statuses?per_page=100" --jq '[.[] | select(.context == "local-ci")][0] // {}' > /tmp/local-ci.json
+          python3 - "$OWNER" "$tree" <<'PY'
+          import json, sys
+          from pathlib import Path
+          s=json.loads(Path('/tmp/local-ci.json').read_text())
+          ok=(s.get('state')=='success' and s.get('creator',{}).get('login')==sys.argv[1]
+              and s.get('description')=='tree '+sys.argv[2])
+          print('Local attestation verified' if ok else 'No matching attestation; full official checks run')
+          PY
