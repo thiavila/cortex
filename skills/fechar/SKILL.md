@@ -13,6 +13,16 @@ argument-hint: "(nenhum) | manter — só atualiza o card, sem arquivar"
 
 # fechar — fechar a conversa que terminou
 
+## Runtime primeiro
+
+Antes dos passos abaixo, ler `<skills>/tarefas/LOCAL.md` e resolver a seleção explícita do perfil.
+**Backend local:** seguir o transporte, a identidade de quadro/conversa e as exceções dessa referência;
+as menções abaixo a `ArtifactData`, conta do Claude, índice manual e ferramentas de sessão são do adapter
+Claude e devem ser traduzidas. As regras de tarefas e as autorizações do usuário continuam valendo.
+**Backend artifact explicitamente selecionado, ou legado confirmado por `routing: unconfigured` (nenhuma regra ativa para este host):** manter o fluxo abaixo. Sem seleção em outro
+agente, oferecer o setup de `quadro-tarefas`; não criar nem escolher um quadro automaticamente.
+
+
 Objetivo: a conversa que acabou sai da frente **sem perder nada**. O card guarda o que aconteceu e o link da conversa
 (arquivada dá para reabrir; no CLI, o comando `claude --resume`); o `/boa-noite` encontra o fechamento no diário do dia.
 

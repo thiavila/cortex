@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{
+      "type": "command",
+      "command": "sh \"${PLUGIN_ROOT}/skills/tarefas/py\" \"${PLUGIN_ROOT}/hooks/codex-tarefas.py\"",
+      "timeout": 5,
+      "statusMessage": "Cortex: task board reminder"
+    }]}],
+    "SessionStart": [{"matcher": "startup|resume|compact", "hooks": [{
+      "type": "command",
+      "command": "sh \"${PLUGIN_ROOT}/skills/tarefas/py\" \"${PLUGIN_ROOT}/hooks/codex-tarefas.py\"",
+      "timeout": 5,
+      "statusMessage": "Cortex: task board reminder"
+    }]}]
+  }
+}

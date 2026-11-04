@@ -1,0 +1,12 @@
+{
+  "name": "cortex",
+  "interface": {"displayName": "Cortex"},
+  "plugins": [
+    {
+      "name": "cortex",
+      "source": {"source": "local", "path": "./"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}

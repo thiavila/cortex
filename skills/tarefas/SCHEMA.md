@@ -4,6 +4,21 @@ Contrato único entre a página do quadro (modelo `app/board-src.html`, montada 
 `tarefas-io`, `/bom-dia`, `/boa-noite` e `fechar`. Mudou o modelo? Suba `config/schema.versao`, descreva a
 migração em `MIGRACOES.md` e atualize a página e as skills juntas.
 
+## Backends v0.4
+
+O modelo de documentos permanece v4. O backend é escolhido explicitamente no primeiro setup: só Claude →
+`artifact`; qualquer outro agente → `local`. Seleção fica em `<root>/profiles/<perfil>.json` com
+`{version:1, profile, agents:[...], backend:"artifact"|"local", board?:"UUID", name?:"..."}`. Não é identidade
+de conta e não altera os documentos de um artifact existente. A raiz local e o transporte estão em `LOCAL.md`.
+
+No backend local, os mesmos documentos ficam no SQLite, o índice é derivado transacionalmente e toda alteração
+usa `if_version`. Não executar as instruções de escrita manual de índice abaixo nesse backend. Dados locais
+não têm os limites de serviço do artifact; valem os limites anunciados pelo runtime local. Conversas novas
+usam IDs com plataforma (`codex:<id>`, `claude:<id>`, `<agente>:<id>`), e a chave `conversa:<id>` inclui esse
+prefixo. Links são opcionais e específicos da plataforma; preservar IDs importados.
+
+## Adapter artifact
+
 O banco é o do artefato (capability `db`). O Claude lê e escreve com a tool `ArtifactData`
 (`url` = o quadro desta conta, ver `ACHAR-QUADRO.md`). Toda escrita em documento existente leva
 `if_version` (a versão lida por último). Escrever mais de 2 documentos → `batch`.
@@ -165,6 +180,8 @@ Só existe se o quadro foi vestido com a marca da pessoa (`quadro-tarefas` § Te
   "fontes_externas": true,
   "atualizado_em": "ISO" }
 ```
+- `favicon` (local, opcional): nome de um arquivo PNG/ICO em `<root>/assets`, até 1 MiB. O banco guarda a referência; os bytes ficam fora do plugin. Reiniciar o serviço para aplicar.
+- `titulo` (local, opcional): título visual do artifact original; não muda o nome/escopo nos dados.
 - `css`: só sobrescrita de tokens e ajustes leves de forma; vai inteiro no `--tema-arquivo` do `build.py` ao remontar.
 - `fontes`: URL do Google Fonts ou `null`. Nunca guardar arquivo de fonte, logo ou imagem aqui.
 - `fontes_externas: false`: a página não carrega nada de fora (nem o Google Fonts) e usa as fontes do sistema
@@ -339,3 +356,7 @@ para subcoleções (`tasks/<id>/historico/<ts>`).
 3. `atualizado_em` muda a cada escrita; `concluido_em` só ao ir para `feito`.
 4. Ligação em `relacionadas` é sempre gravada nos dois lados (batch com as duas tarefas + índice).
 5. Nada de segredo, token ou dado de cartão em nenhum campo.
+
+### `config/roteamento` — identidade do host (opt-in)
+
+`{versao:1,regras:[{host:"claude",ativo:true,conta:"usuario@empresa.example",organizacao:"id-opcional"}]}`. Regras específicas da pessoa/empresa, cadastradas somente por pedido explícito. A identidade vem da autenticação real do host; `organizacao`, quando presente, também precisa coincidir. Uma única correspondência seleciona o quadro; zero/múltiplas exigem escolha explícita, sem fallback. Não é controle de acesso ao SQLite. Não aplica a outros hosts por analogia.
