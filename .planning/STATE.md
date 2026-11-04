@@ -16,7 +16,7 @@ progress:
 
 # Estado
 
-Last activity: 2026-11-03 - Quick task 261103-ush: candidato Cortex revisado; publicar, aguardar CI oficial e fazer merge autorizado.
+Last activity: 2026-11-03 - Quick task 261103-r7p: roteamento por pasta da sessão, Codex GO, PR #4.
 
 ### Quick Tasks Completed
 
@@ -24,6 +24,7 @@ Last activity: 2026-11-03 - Quick task 261103-ush: candidato Cortex revisado; pu
 |---|-------------|------|--------|--------|-----------|
 | 261103-nu7 | Codex reminder hooks installed locally; user hook trust pending | 2026-11-03 | 8e6d837 | pending | [261103-nu7-instalar-lembrete-cortex-no-codex-e-dist](./quick/261103-nu7-instalar-lembrete-cortex-no-codex-e-dist/) |
 | 261103-ush | Cortex: achados resolvidos, Claude GO, CI e atestado local para merge autorizado | 2026-11-04 | 4cb310c | complete | [261103-ush-concluir-revisao-e-gates-do-cortex-reuni](./quick/261103-ush-concluir-revisao-e-gates-do-cortex-reuni/) |
+| 261103-r7p | Cortex: roteamento por pasta da sessão antes da conta (Codex GO) | 2026-11-03 | 9fe27b6 | complete | [261103-r7p-roteamento-por-pasta-da-sessao](./quick/261103-r7p-roteamento-por-pasta-da-sessao/) |
 
 - Milestone: v0.3 (agnóstico). Branch `v0.3-agnostico`, PR thiavila/cortex#1.
 - Fases 1–6: feitas. E2E com pessoa en-US (Asana falso, sem git, sem gravador) passou; instalação limpa num
