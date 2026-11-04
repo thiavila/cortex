@@ -3,10 +3,10 @@ gsd_state_version: "1.0"
 milestone: v0.3
 milestone_name: (agnóstico)
 status: unknown
-last_updated: "2026-11-03T20:31:16.566Z"
+last_updated: "2026-11-04T01:20:45.943Z"
 last_activity: 2026-11-03
 last_activity_desc: "Quick task 261103-nu7: Codex reminders installed locally; user hook trust pending."
-state_head: 8e6d837e4052deffdc5fcc548de28746432fe402
+state_head: 4cb310ccc037837fef0b227196aef29f88dbce0f
 progress:
   total_phases: 1
   completed_phases: 0
@@ -16,13 +16,14 @@ progress:
 
 # Estado
 
-Last activity: 2026-11-03 - Quick task 261103-nu7: Codex reminders installed locally; user hook trust pending.
+Last activity: 2026-11-03 - Quick task 261103-ush: candidato Cortex revisado; publicar, aguardar CI oficial e fazer merge autorizado.
 
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 261103-nu7 | Codex reminder hooks installed locally; user hook trust pending | 2026-11-03 | 8e6d837 | pending | [261103-nu7-instalar-lembrete-cortex-no-codex-e-dist](./quick/261103-nu7-instalar-lembrete-cortex-no-codex-e-dist/) |
+| 261103-ush | Cortex: achados resolvidos, Claude GO, CI e atestado local para merge autorizado | 2026-11-04 | 4cb310c | complete | [261103-ush-concluir-revisao-e-gates-do-cortex-reuni](./quick/261103-ush-concluir-revisao-e-gates-do-cortex-reuni/) |
 
 - Milestone: v0.3 (agnóstico). Branch `v0.3-agnostico`, PR thiavila/cortex#1.
 - Fases 1–6: feitas. E2E com pessoa en-US (Asana falso, sem git, sem gravador) passou; instalação limpa num
@@ -32,9 +33,9 @@ Last activity: 2026-11-03 - Quick task 261103-nu7: Codex reminders installed loc
   dia não gera as recorrentes do dia novo até recarregar; `--fuso` em Python 3.8 ou Windows sem `tzdata` sai com 3
   (a skill refaz sem fuso).
 
-## v0.4 — Fase 7 implementada; revisão pendente
+## v0.4.2 — Candidato revisado para merge autorizado
 
-Setup: Claude exclusivo → artifact; qualquer outro → local compartilhado. Implementação em codex/cortex-local-runtime, base 614c337. 29 testes Python e 4 Node passaram; QA no navegador com dados sintéticos confirmou leitura/escrita em dois processos. Codex reconhece o pacote; manifest Claude validado. Revisão Claude falhou por autenticação do perfil Pessoal, confirmada fora do sandbox: sem aprovação para produção. Próximo passo: restaurar autenticação e revisar o diff completo; validar attach no cliente escolhido. Detalhes em phases/07-runtime-local/07-SUMMARY.md e 07-VERIFICATION.md.
+Runtime e hooks reunidos; 50 testes Python +13 Node e contratos aprovados. Claude Opus reavaliou o commit4cb310c e deu GO após correções. CI oficial e atestado local configurados. A publicação deve usar local-ci.sh, seguida de CI oficial verde antes do merge do PR #3. Resultado operacional fica no PR e no card cortex-runtime-local. Confiança nos hooks continua pendente no host; não é aprovação de entrega automática.
 
 ## Quick tasks
 

@@ -1,9 +1,5 @@
-# Revisão cruzada — PENDENTE
+# Revisão cruzada — GO no candidato final
 
-Implementação: OpenAI (Codex). Peer tentado: Claude, perfil Pessoal, via skill claude-peer, somente Read/Glob/Grep. Modelo não informado porque nenhuma chamada de inferência completou.
+A tentativa inicial falhou por autenticação e não constituiu revisão. Depois do login e das revisões incrementais, a revisão geral final por Claude Opus sobre código OpenAI identificou e corrigiu os achados relevantes; reavaliação GO no commit4cb310c.
 
-Resultado: ok=false, exit_code=1, terminal_reason=api_error. Claude CLI informou que a sessão OAuth não pôde ser atualizada. Diagnóstico fora do sandbox confirmou loggedIn=false no perfil selecionado. Nenhum login alterado, credencial exposta ou fallback para outra conta.
-
-Uso reportado: entrada 0, saída 0, cache criado 0, cache lido 0; custo equivalente estimado US$0.00. Não é revisão concluída, apesar do campo result_subtype do CLI conter success; os campos ok/is_error e exit_code indicam falha.
-
-A tentativa foi feita sobre os arquivos registrados em 07-REVIEW-MANIFEST.json. Nenhum veredicto de aprovação foi emitido. Repetir revisão após autenticação e manter PR em draft até resolver os achados relevantes. A validação local não substitui essa etapa.
+Registro completo, testes, limites, hashes e uso: ../../quick/261103-ush-concluir-revisao-e-gates-do-cortex-reuni/261103-ush-REVIEW.md e REVIEW-MANIFEST.json. Entrega automática dos hooks confiados e Windows real não fazem parte da aprovação. CI oficial ainda deve passar no head publicado antes do merge.
