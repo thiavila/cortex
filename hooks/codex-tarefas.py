@@ -38,8 +38,10 @@ def context(payload):
         'For eligible main-thread work, use the current installed tarefas skill and its LOCAL.md. '
         'If that skill is not available, the bundled fallback is ' + str(skill) +
         ' with local-runtime instructions at ' + str(local) + '. '
-        'Read the selected board preferences before any mutation. Resolve an explicitly selected '
-        'profile/board; do not infer one from cwd, a company name, another host\'s identity, or a connector. '
+        'Read the selected board preferences before any mutation. Honor an explicitly selected '
+        'profile/board first; otherwise run setup.py resolve --host codex --cwd <session folder> '
+        'as described in LOCAL.md. Folder routing requires active Codex rules in the board configuration; '
+        'never infer a board from a company name, another host\'s identity, or a connector. '
         'If scope is ambiguous, ask; do not create a database or fall back to an artifact. '
         'Before substantive work, check whether this conversation is linked and search for an analogous '
         'card before creating one. Use conversation identity codex:' + session +

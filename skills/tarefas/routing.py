@@ -171,11 +171,18 @@ def _claude_identity():
 
 
 def resolve_host(root, host, cwd=None):
-    if host != 'claude':
+    if host not in ('claude', 'codex'):
         raise RoutingError('unsupported_host: use explicit profile selection for this host')
+    if host == 'codex' and (cwd is None or not Path(cwd).is_absolute()):
+        raise RoutingError('invalid_cwd: Codex routing requires --cwd with the absolute session folder')
     store = Store(root)
     rules = configured_rules(store, host)
     if not rules:
         return {'routing':'unconfigured', 'host':host}
-    return select_board(store, host, _claude_identity,
+    def identity():
+        if host == 'claude':
+            return _claude_identity()
+        raise RoutingError('identity_unavailable: Codex routing requires folder-only rules or an explicit profile')
+
+    return select_board(store, host, identity,
                         cwd=os.getcwd() if cwd is None else cwd, rules=rules)

@@ -140,6 +140,57 @@ class RoutingTest(unittest.TestCase):
                 self.assertEqual(resolve_host(self.tmp.name, 'claude')['board'], self.a)
             auth.assert_not_called()
 
+    def test_codex_resolves_own_folder_rules_without_claude_identity(self):
+        base = self.folders()
+        self.rules(self.a, {'host':'codex', 'pastas':[str(base / 'Company')]})
+        self.rules(self.b, {'host':'codex', 'pastas':[str(base / 'Personal')]})
+        with patch('routing.subprocess.run') as auth:
+            for folder, board in [('Company', self.a), ('Company/app/.claude/worktrees/x', self.a),
+                                  ('Personal/site', self.b)]:
+                result = resolve_host(self.tmp.name, 'codex', cwd=str(base / folder))
+                self.assertEqual((result['board'], result['host'], result['selected_by']),
+                                 (board, 'codex', 'folder'))
+            for missing in (None, 'Company/app'):
+                with self.assertRaisesRegex(RoutingError, 'invalid_cwd'):
+                    resolve_host(self.tmp.name, 'codex', cwd=missing)
+            for outside in (base, base / 'Company2'):
+                with self.assertRaisesRegex(RoutingError, 'routing_not_found'):
+                    resolve_host(self.tmp.name, 'codex', cwd=str(outside))
+            auth.assert_not_called()
+
+    def test_codex_does_not_inherit_claude_rules_or_authenticate_accounts(self):
+        base = self.folders()
+        self.rules(self.a, {'pastas':[str(base / 'Company')]})
+        with patch('routing.subprocess.run') as auth:
+            self.assertEqual(resolve_host(self.tmp.name, 'codex', cwd=str(base / 'Company')),
+                             {'routing':'unconfigured', 'host':'codex'})
+            self.rules(self.b, {'host':'codex', 'conta':'user@company.example'})
+            with self.assertRaisesRegex(RoutingError, 'identity_unavailable'):
+                resolve_host(self.tmp.name, 'codex', cwd=str(base / 'Company'))
+            auth.assert_not_called()
+
+    def test_codex_ambiguous_and_unsupported_hosts_fail_closed(self):
+        base = self.folders()
+        for board in (self.a, self.b):
+            self.rules(board, {'host':'codex', 'pastas':[str(base / 'Company')]})
+        with patch('routing.subprocess.run') as auth:
+            with self.assertRaisesRegex(RoutingError, 'routing_ambiguous'):
+                resolve_host(self.tmp.name, 'codex', cwd=str(base / 'Company/app'))
+            with self.assertRaisesRegex(RoutingError, 'unsupported_host'):
+                resolve_host(self.tmp.name, 'other', cwd=str(base / 'Company'))
+            auth.assert_not_called()
+
+    def test_codex_account_gated_folder_never_falls_back_to_a_broader_rule(self):
+        base = self.folders()
+        self.rules(self.a, {'host':'codex', 'pastas':[str(base / 'Company')]})
+        self.rules(self.b, {'host':'codex', 'pastas':[str(base / 'Company/app')],
+                            'conta':'user@company.example'})
+        with patch('routing.subprocess.run') as auth:
+            with self.assertRaisesRegex(RoutingError, 'identity_unavailable'):
+                resolve_host(self.tmp.name, 'codex', cwd=str(base / 'Company/app'))
+            self.assertEqual(resolve_host(self.tmp.name, 'codex', cwd=str(base / 'Company'))['board'], self.a)
+            auth.assert_not_called()
+
     def test_login_is_only_asked_when_an_account_can_change_the_winner(self):
         base = self.folders()
         failing = lambda: (_ for _ in ()).throw(RoutingError('identity_unavailable: down'))

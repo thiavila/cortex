@@ -135,7 +135,7 @@ A seleção automática pode ser habilitada por pessoa/empresa em `config/roteam
 profunda vence) e, sem regra de pasta, pela conta autenticada no host. Só aceita uma correspondência.
 Regra de pasta serve para quem usa a mesma conta em escopos diferentes, como trabalho e pessoal.
 Sem regras ativas, mantém o fluxo habitual. Havendo regras sem correspondência ou ambíguas, pede escolha explícita. Contas e empresas concretas nunca entram nas skills.
-As regras Claude não são usadas pelo Codex ou por outro host. Contrato e exemplo em `LOCAL.md`.
+No Codex, use `setup.py resolve --host codex --cwd <pasta absoluta da sessão>` (`--cwd` obrigatório) com regras próprias `host:"codex"`. O Codex resolve por pasta sem consultar o login Claude; regras por conta pedem seleção explícita. Regras de um host não são herdadas por outro. Contrato e exemplo em `LOCAL.md`.
 
 ## Dados, perfis e migração
 

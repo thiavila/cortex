@@ -51,3 +51,8 @@ Runtime e hooks reunidos; 50 testes Python +13 Node e contratos aprovados. Claud
 | 261031-mm4 | Abas fixas: portas estáveis e autorização persistente opt-in; Arc confirmado após restart | Testes e revisão Claude GO restrita; PR draft |
 
 | 261031-my1 | Favicons por quadro configurados no banco com logos locais originais | 12 testes locais; HTTP e Arc verificados; Claude GO restrito |
+
+
+## 2026-11-13 — Roteamento Codex por pasta
+
+Quick 261113-1dc: resolvedor Codex por regras explícitas de pasta, cwd absoluto obrigatório e isolamento de host. 62 testes Python + 13 JavaScript PASS; Claude Opus 5.5 R2 GO. Versão 0.4.4 preparada para CI/instalação oficial; ver quick/261113-1dc-corrigir-roteamento-codex-por-pasta-com-/SUMMARY.md e registro de instalação.
