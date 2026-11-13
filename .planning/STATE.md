@@ -56,3 +56,7 @@ Runtime e hooks reunidos; 50 testes Python +13 Node e contratos aprovados. Claud
 ## 2026-11-13 — Roteamento Codex por pasta
 
 Quick 261113-1dc: resolvedor Codex por regras explícitas de pasta, cwd absoluto obrigatório e isolamento de host. 62 testes Python + 13 JavaScript PASS; Claude Opus 5.5 R2 GO. Versão 0.4.4 preparada para CI/instalação oficial; ver quick/261113-1dc-corrigir-roteamento-codex-por-pasta-com-/SUMMARY.md e registro de instalação.
+
+## Installation verification (0.4.5)
+
+Quick 261113-hff: installation doctor, private bounded execution observations and persisted task-link read-back implemented. 77 Python + 13 JavaScript tests pass, manifests validated; Claude cross-family review approved code/local application after corrections. Native hook trust and real prompt acceptance are separate operational gates; see quick summary. Native plugin source version is deliberately unverified until supported.

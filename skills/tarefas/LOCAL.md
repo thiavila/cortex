@@ -169,3 +169,11 @@ validação do comando. Para vir de artifact, exportar primeiro com `tarefas-io`
 Não executar `writes-N.json` do `io.py` legado diretamente no dispatcher: `file_path` não é uma operação remota.
 Nunca apagar ou desativar o quadro de origem automaticamente. Dados ficam no computador e o usuário cuida do
 backup; exportações contêm conteúdo privado e não entram no repositório público.
+
+## Verificação de instalação e de registro (Codex)
+
+Use o helper `codex_harness.py` da versão atual instalada de `tarefas`, não um snapshot antigo como prova de atualização. `doctor --cwd <pasta absoluta> --session-id <id Codex sem prefixo>` verifica descoberta/confiança nativas, snapshot, quadro, execução recente e vínculo persistido. `verify` com os mesmos argumentos apenas relê o vínculo; `--root` e `--profile` preservam uma seleção explicitamente feita pelo usuário. Ambos são somente leitura no quadro e nunca criam seleção/card. Saída incompleta ou código2 não é aprovação. Em adapter artifact, manter seu fluxo e confirmar pela leitura da ferramenta correspondente.
+
+Antes de dizer que um card foi salvo/atualizado, reler o card pelo runtime e, no Codex local, confirmar `verify.registered:true`; registrar IDs/versões como evidência. O helper comprova vínculo, não avalia sozinho se o texto novo representa o marco. Preserve a confirmação de versão/resultado da mutação e a leitura posterior do estado esperado. Somente leitura, delegação e exclusões continuam sem escrita: ausência de card não autoriza criar um para passar no teste.
+
+O instalador standalone pode habilitar observação local com `--observe`. O comando do adapter nativo também declara a observação. Ela grava somente metadados de execução limitados e privados, sem prompt/transcrito/card, e não escreve no quadro. Uma execução manual do script não prova entrega nativa. Confiança é revisada pelo usuário nos controles do host; o plugin não se autoaprova nem preenche hashes de confiança.

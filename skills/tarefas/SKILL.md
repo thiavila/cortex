@@ -98,9 +98,9 @@ chamadas paralelas, e sem atrasar a resposta com explicações:
      `config/projetos` (`SCHEMA.md` § `config/projetos`) já diz o projeto principal; um `get config/projetos` junto das
      leituras do passo 1 basta.
    - **Dúvida entre 2+ candidatas** → ligar à mais provável e citar a outra na linha de aviso.
-7. **Nome curto da conversa** — só onde existe `set_session_title`, só em conversa NOVA (esta é a primeira mensagem),
+7. **Nome curto da conversa** — só onde existe uma ferramenta nativa de título (`set_session_title` ou, no Codex, `set_thread_title`), só em conversa NOVA (esta é a primeira mensagem),
    só se `titulo_conversa.automatico` for `true` e o id não estiver em `titulo_conversa.manter`. Nunca renomear sozinha
-   uma conversa que já existia (o usuário reconhece pelo nome). `set_session_title` com `"self"`. **1 a 3 palavras**
+   uma conversa que já existia sem pedido explícito (o usuário reconhece pelo nome). `set_session_title` com `"self"`; no Codex, `set_thread_title` sem threadId para esta conversa. Um pedido explícito de renomear conversas existentes autoriza somente o escopo indicado pelo usuário. **1 a 3 palavras**
    (até `titulo_conversa.max`, padrão 25 caracteres), no idioma do quadro: o assunto com a palavra que o usuário
    reconhece (PR, cliente, pessoa, tela). Sem o nome do projeto (a pasta e o quadro já dizem), sem `·`, sem data, sem
    emoji, sem verbo genérico. Ex.: `PR 42 checkout`, `Importação CRM`, `Onboarding deck`.
@@ -171,3 +171,7 @@ cada escrita da sessão.
 - ❌ Escrever no gestor de tarefas fora do que `config/gestor.escrever` permite e sem o usuário pedir aquela escrita.
 - ❌ Gravar o card no modo `perguntar` antes do sim.
 - ❌ Gravar segredo, token, senha ou dado de cartão em qualquer campo.
+
+## Confirmação verificável (runtime local no Codex)
+
+Antes de confirmar ao usuário que registrou a tarefa: conferir o resultado/versão da mutação, reler o estado esperado e executar `python3 <skills>/tarefas/codex_harness.py verify --cwd <pasta absoluta da sessão> --session-id <id Codex sem prefixo>`, preservando `--root`/`--profile` se foram selecionados explicitamente. Só `registered:true` comprova o vínculo. O verificador não escreve e não substitui a leitura dos campos que foram atualizados. Não criar card em trabalho somente leitura/delegado/excluído para satisfazer o verificador. Se a instalação estiver incompleta, usar `doctor` conforme `LOCAL.md` e informar o bloqueio concreto; não dizer que está tudo operacional com base apenas em skills disponíveis ou arquivos copiados.

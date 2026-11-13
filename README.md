@@ -52,39 +52,37 @@ codex plugin add cortex@cortex
 Para testar um checkout local no Codex, use `codex plugin marketplace add /caminho/absoluto/cortex` e depois
 `codex plugin add cortex@cortex`. Reabra uma sessão e invoque `quadro-tarefas` (no Claude, `/cortex:quadro-tarefas`).
 
-### Lembretes do quadro no Codex (0.4.2)
+### Lembretes e verificação no Codex (0.4.5)
 
-O pacote Codex inclui `hooks/codex.json`, separado do hook Claude. Ele lembra o agente de ligar a conversa ao
-card e registrar decisões, entregas e bloqueios em cada mensagem humana; início, retomada e compactação
-reintroduzem a orientação. O hook só injeta contexto: não lê transcritos, não chama LLM, não grava cards,
-não escolhe perfil e não altera memórias ou `AGENTS.md`. O agente continua seguindo as preferências do quadro,
-pedidos de somente leitura e as permissões do usuário. Não há hook Stop nem turno extra automático.
+O pacote inclui `hooks/codex.json`: `UserPromptSubmit` e `SessionStart` (`startup`, `resume`, `compact`). O lembrete pede vínculo com um card e registro de marcos, respeitando as preferências, o modo perguntar, escopo somente leitura e exclusões. Não cria tarefas, não lê transcritos e não chama LLM. Não há hook Stop nem continuação automática de modelo.
 
-Depois de instalar/atualizar o plugin, revise e confie nos hooks em **Settings > Hooks** do Codex ou em `/hooks`
-no CLI. Instalação não significa confiança automática. Alterações futuras exigem nova revisão. Sem essa etapa,
-o Codex pode descobrir os hooks e ainda assim pular sua execução.
+**Copiar os arquivos não significa instalação operacional.** O instalador retorna `ready:false` e `verification_required` até uma verificação explícita. Não muda confiança nem edita `config.toml`. Revise as definições em **Codex Settings > Hooks** ou `/hooks` e confira o caminho, evento e comando. Atualizar uma definição pode exigir nova aprovação. Nunca forje hashes de confiança para contornar essa etapa.
 
-Quem usa somente as skills, sem instalar o plugin nativo, pode instalar o lembrete separadamente no macOS/Linux/WSL:
+Quem carrega somente as skills pode instalar o adapter separado (macOS/Linux/WSL):
 
 ```sh
-python3 scripts/install_codex_hooks.py
-# Outro diretório de configuração, para teste:
-python3 scripts/install_codex_hooks.py --codex-home /caminho/isolado
-# Remover somente os grupos exatos que o instalador registrou:
+python3 scripts/install_codex_hooks.py --observe
+# Instalar e verificar usando uma conversa real já existente:
+python3 scripts/install_codex_hooks.py --observe --verify --cwd /caminho/absoluto/do/projeto --session-id ID-DA-CONVERSA
+# Verificação independente, sem instalar nem escrever no quadro:
+python3 skills/tarefas/codex_harness.py doctor --cwd /caminho/absoluto/do/projeto --session-id ID-DA-CONVERSA
+# Somente comprovar o vínculo persistido conversa ↔ card:
+python3 skills/tarefas/codex_harness.py verify --cwd /caminho/absoluto/do/projeto --session-id ID-DA-CONVERSA
+# Remover só as definições exatas de propriedade do instalador:
 python3 scripts/install_codex_hooks.py --remove
 ```
 
-Esse instalador mescla `hooks.json` preservando outros hooks, guarda backup e uma cópia versionada do runtime em
-`<CODEX_HOME>/cortex-hooks/` (padrão `~/.codex`). Não depende de manter o checkout original no mesmo caminho.
-Repetir não duplica os grupos; hooks Cortex editados manualmente exigem reconciliação explícita. Grupos removidos
-e instalação interrompida são recuperados na próxima execução. Cada atualização do snapshot exige nova confiança.
-Ao atualizar as skills, use a versão atual instalada; a cópia do instalador serve apenas de fallback. A remoção deixa
-as cópias e backups disponíveis para recuperação. Use **um** modo: hook do plugin nativo **ou** instalador separado.
-O instalador não edita `config.toml` nem marca hooks como confiáveis; habilite o suporte a hooks no host se necessário.
+`--codex-home` seleciona explicitamente outro host; `--root`/`--profile` selecionam o quadro para a verificação. Sem perfil explícito, `doctor`/`verify` usam somente as regras Codex cadastradas para a pasta da sessão. Falta/ambiguidade de seleção é erro: nenhum quadro ou card é criado como fallback. Perfil artifact recebe orientação para seu adapter; o verificador local não o substitui.
 
-Memória e MD global podem expressar a preferência pessoal de usar o quadro, mas o plugin não precisa reescrevê-los.
-A política fica nas skills e preferências; o hook traz o lembrete no momento de agir. Isso melhora a consistência,
-mas não é uma prova de que o agente efetivamente gravou o card: a confirmação continua dependendo do resultado da operação.
+O `doctor` verifica separadamente: snapshot versus arquivos fonte atuais; descoberta real `hooks/list` do Codex; os dois eventos habilitados e confiáveis, sem duplicatas; seleção do quadro e leitura das preferências; comprovante recente de execução; e vínculo lido novamente do card e do índice. Não deduz confiança pela posição em um arquivo. Se o protocolo nativo não estiver disponível, informa indisponível, sem aprovar por aproximação. No modo nativo, a versão instalada ainda não é comparada à fonte: informa `native_version_unverified` e mantém o diagnóstico incompleto, inclusive após remover o standalone. Requer o Codex CLI para inspecionar o host; a inspeção não cria conversas nem chama modelo. `--verify` retorna código2 enquanto faltar uma etapa. `runtime_ready` sozinho não comprova registro de tarefas.
+
+**Comprovantes locais:** `--observe` no instalador standalone habilita metadados privados em `<CODEX_HOME>/cortex-hooks/observations/`; no adapter nativo a observação está ativa por padrão e consta no comando a ser revisado. Contêm somente hash da identidade da sessão, evento, horário, emissão/exclusão e hash do script; nunca texto do prompt, transcrito, título, conteúdo do card ou credenciais. Arquivos0600, diretório0700, até512 comprovantes. Execução excluída é registrada como tal e não vira prova de emissão. `doctor` exige evento `UserPromptSubmit` das últimas24h e do mesmo código. Metadado prova execução local, **não obediência do modelo**; rodar o script manualmente não é teste de entrega pelo host. Sem `--observe`, o standalone continua sem gravar metadados e o diagnóstico não afirma entrega observada.
+
+A cópia em `<CODEX_HOME>/cortex-hooks/runtime/` preserva outros hooks, recebe backup e é imutável por digest. O `doctor` compara com a versão fonte a partir da qual foi chamado; para verificar atualização, invoque o helper da versão nova do plugin. Repetir instalação não duplica definições. Atualizações interrompidas são retomáveis; alterações manuais exigem reconciliação explícita. Use **um** modo: plugin nativo ou instalação standalone. Atualize também o snapshot ao atualizar skills; remover os hooks preserva backups para recuperação.
+
+**Aceite da instalação:** após revisão/confiança, envie uma mensagem de trabalho real numa conversa principal existente. O agente resolve o quadro, encontra ou registra o card conforme autorização/preferências e executa `verify` para reler o vínculo. Só depois `doctor --session-id` pode mostrar os quatro estágios verificados. Teste retomada e compactação sem duplicar cards; uma consulta somente leitura/delegada não pode escrever no quadro para satisfazer esse teste. Para testar criação sem trabalho real, use um quadro isolado e descartável com autorização — o instalador não semeia cards de teste no quadro pessoal.
+
+Memórias e instruções globais permanecem intactas. O diagnóstico torna falhas explícitas e o agente só confirma gravação depois do read-back; não promete que um lembrete isolado garante todos os marcos sem execução do fluxo.
 O pacote Codex contém as seis skills; o MCP é configurado depois, com o UUID real do quadro.
 Outros clientes podem usar as mesmas skills e a CLI/MCP, pelo mecanismo de instalação que suportarem.
 

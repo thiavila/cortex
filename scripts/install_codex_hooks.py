@@ -14,6 +14,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'skills' / 'tarefas'))
 from caminhos import trava
+from codex_harness import runtime_files
 
 
 def read(path):
@@ -41,7 +42,7 @@ def write(path, value):
             os.unlink(tmp)
 
 
-def install(home, remove=False):
+def install(home, remove=False, observe=False):
     if os.name == 'nt':
         raise ValueError('Standalone installer requires POSIX; use WSL on Windows.')
     home = Path(home).expanduser().resolve()
@@ -80,9 +81,7 @@ def install(home, remove=False):
             return {'changed': False, 'installed': False}
         new_groups, runtime = {}, None
         if not remove:
-            files = [ROOT / 'hooks' / 'codex-tarefas.py'] + sorted(
-                p for p in (ROOT / 'skills' / 'tarefas').rglob('*')
-                if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc')
+            files = runtime_files(ROOT)
             digest = hashlib.sha256()
             for p in files:
                 digest.update(str(p.relative_to(ROOT)).encode())
@@ -106,6 +105,8 @@ def install(home, remove=False):
                     if stage.exists():
                         shutil.rmtree(stage)
             command = 'sh ' + shlex.quote(str(runtime / 'skills/tarefas/py')) + ' ' + shlex.quote(str(runtime / 'hooks/codex-tarefas.py'))
+            if observe:
+                command += ' --observe-dir ' + shlex.quote(str(managed / 'observations'))
             handler = {'type': 'command', 'command': command, 'timeout': 5,
                        'statusMessage': 'Cortex: task board reminder'}
             new_groups = {'UserPromptSubmit': {'hooks': [handler]},
@@ -134,19 +135,36 @@ def install(home, remove=False):
                             'runtime': str(runtime) if runtime else None})
         if changed:
             write(config_path, config)
-        write(receipt_path, {'version': 1, 'groups': new_groups, 'runtime': str(runtime) if runtime else None})
-        return {'changed': changed, 'installed': not remove, 'hooks_file': str(config_path),
+        write(receipt_path, {'version': 2, 'groups': new_groups, 'runtime': str(runtime) if runtime else None, 'observe': bool(observe and not remove)})
+        return {'changed': changed, 'installed': not remove, 'ready': False,
+                'status': 'removed' if remove else 'verification_required', 'hooks_file': str(config_path),
                 'runtime': str(runtime) if runtime else None, 'backup': str(backup) if backup else None,
+                'verify_command': 'python3 ' + shlex.quote(str(ROOT / 'skills/tarefas/codex_harness.py')) + ' doctor --codex-home ' + shlex.quote(str(home)) + ' --cwd /absolute/session/folder --session-id EXISTING_SESSION_ID' if runtime else None,
                 'trust': 'Review these hooks in Codex Settings > Hooks or /hooks; installer does not grant trust.'}
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--codex-home', default=os.environ.get('CODEX_HOME', str(Path.home() / '.codex')))
+    ap.add_argument('--observe', action='store_true', help='Opt in to bounded local execution metadata (no prompt/task content)')
+    ap.add_argument('--verify', action='store_true', help='Run read-only native/board verification after installing; incomplete returns exit 2')
+    ap.add_argument('--cwd', help='Absolute session folder, required with --verify')
+    ap.add_argument('--root', help='Explicit Cortex board root for verification')
+    ap.add_argument('--profile', help='Explicit board profile for verification')
+    ap.add_argument('--session-id', help='Existing Codex session to verify; never creates a task')
     ap.add_argument('--remove', action='store_true', help='Remove only the exact recorded Cortex hook groups')
     args = ap.parse_args()
+    if args.verify and (not args.cwd or not Path(args.cwd).is_absolute() or args.remove):
+        ap.error('--verify requires absolute --cwd and cannot be combined with --remove')
     try:
-        print(json.dumps(install(args.codex_home, args.remove), ensure_ascii=False))
+        result = install(args.codex_home, args.remove, args.observe)
+        if args.verify:
+            from codex_harness import doctor
+            result['verification'] = doctor(args.cwd, args.codex_home, ROOT, args.root, args.profile, args.session_id)
+            result['ready'] = result['verification']['ready']
+            result['status'] = result['verification']['status']
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if not args.verify or result['ready'] else 2
     except (ValueError, OSError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
