@@ -54,10 +54,13 @@ class CodexHooksTests(unittest.TestCase):
         self.assertEqual(set(config['hooks']), {'UserPromptSubmit', 'SessionStart'})
         self.assertIn('${PLUGIN_ROOT}', config['hooks']['UserPromptSubmit'][0]['hooks'][0]['command'])
         command = config['hooks']['UserPromptSubmit'][0]['hooks'][0]['command']
-        p = subprocess.run(command, shell=True, env=dict(os.environ, PLUGIN_ROOT=str(ROOT)),
-            input=json.dumps({'hook_event_name': 'UserPromptSubmit', 'session_id': 'native', 'prompt': 'work'}),
-            capture_output=True, text=True, check=True)
-        self.assertIn('conversa:codex:native', p.stdout)
+        with tempfile.TemporaryDirectory() as td:
+            p = subprocess.run(command, shell=True, env=dict(os.environ, PLUGIN_ROOT=str(ROOT), CODEX_HOME=td),
+                input=json.dumps({'hook_event_name': 'UserPromptSubmit', 'session_id': 'native', 'prompt': 'work'}),
+                capture_output=True, text=True, check=True)
+            self.assertIn('conversa:codex:native', p.stdout)
+            self.assertEqual(p.stderr, '')
+            self.assertTrue(list((Path(td) / 'cortex-hooks/observations').glob('*.json')))
 
     def test_install_idempotent_preserves_and_uninstalls(self):
         with tempfile.TemporaryDirectory(prefix='cortex space ') as td:
