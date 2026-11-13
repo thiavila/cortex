@@ -120,7 +120,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     resolve = commands.add_parser("resolve", help="Read board routing from the session folder and/or the authenticated host account")
     resolve.add_argument("--host", required=True)
-    resolve.add_argument("--cwd", help="Session folder for folder rules (default: current directory)")
+    resolve.add_argument("--cwd", help="Absolute session folder (required for codex; claude defaults to current directory)")
     commands.add_parser("status", help="Read selection without creating files")
     commands.add_parser("mcp-config", help="Print MCP config with real paths and board; never installs it")
     setup = commands.add_parser("configure")
